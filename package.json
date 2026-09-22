@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "smoke": "tsx src/index.ts",
-    "hitl-demo": "tsx src/hitl-demo.ts"
+    "hitl-demo": "tsx src/hitl-demo.ts",
+    "verify-refresh": "tsx src/verify-refresh.ts"
   },
   "repository": {
     "type": "git",
@@ -28,6 +29,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@types/node": "^26.6.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }
