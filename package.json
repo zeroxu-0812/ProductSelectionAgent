@@ -7,7 +7,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "smoke": "tsx src/index.ts",
     "hitl-demo": "tsx src/hitl-demo.ts",
-    "verify-refresh": "tsx src/verify-refresh.ts"
+    "verify-refresh": "tsx src/verify-refresh.ts",
+    "verify-ps": "tsx src/verify-ps-refresh.ts",
+    "verify-all": "tsx src/verify-refresh.ts && tsx src/verify-monitor.ts && tsx src/verify-collect.ts && tsx src/verify-insight.ts && tsx src/verify-tag.ts && tsx src/verify-ps-refresh.ts"
   },
   "repository": {
     "type": "git",
