@@ -39,6 +39,7 @@ export type BridgeOutcome =
 
 /** 拍板写入决策文件（resume 时 cli_entry 读取并消费） */
 export function writeDecision(workDir: string, decision: unknown): void {
+  mkdirSync(workDir, { recursive: true });
   const decisions = [];
   if (existsSync(join(workDir, "decisions.json"))) {
     decisions.push(...JSON.parse(readFileSync(join(workDir, "decisions.json"), "utf-8")));
