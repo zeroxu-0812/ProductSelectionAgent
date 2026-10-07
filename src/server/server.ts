@@ -27,6 +27,7 @@ import { tagWorkflow } from "../workflows/tag.js";
 import { LibSQLStore } from "@mastra/libsql";
 import { Mastra } from "@mastra/core";
 import { loadCategoryPresets, buildRefreshParams } from "./presets.js";
+import { parseDecision } from "./decision-parser.js";
 
 const PORT = Number(process.env.PSA_PORT ?? 8123);
 const DATA_DIR = join(process.cwd(), ".psa");
@@ -147,6 +148,14 @@ app.get("/api/presets", (_req, res) => {
   } catch (e) {
     res.status(500).json({ error: "类目注册表读取失败: " + String(e).slice(0, 150) });
   }
+});
+
+/** 对话式拍板解析（自然语言 → JSON decision） */
+app.post("/api/parse-decision", async (req, res) => {
+  const { cardTitle, text } = req.body ?? {};
+  if (!cardTitle || !text) return res.status(400).json({ error: "缺 cardTitle 或 text" });
+  const r = await parseDecision(String(cardTitle), String(text));
+  res.json(r);
 });
 
 app.get("/api/tasks", (_req, res) => res.json(loadTasks()));

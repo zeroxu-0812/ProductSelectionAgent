@@ -158,6 +158,15 @@ form.newtask .btn-go:active { transform: translateY(0); }
   font-size: 13px; transition: all .15s; }
 .optbtn:hover { border-color: var(--susp); background: rgba(180,140,255,.1); transform: translateX(2px); }
 .optbtn.primary { border-color: var(--susp); color: #d9c6ff; font-weight: 600; }
+.chatline { display: flex; gap: 8px; margin-top: 6px; }
+.chatline input { flex: 1; padding: 11px 13px; border-radius: 10px;
+  border: 1px solid var(--border); background: rgba(10,14,22,.7); color: var(--txt);
+  font-size: 13px; transition: border-color .2s; }
+.chatline input:focus { outline: none; border-color: var(--susp);
+  box-shadow: 0 0 0 3px rgba(180,140,255,.12); }
+.chatline input::placeholder { color: var(--faint); }
+#chat-status code { background: rgba(10,14,22,.8); padding: 2px 7px;
+  border-radius: 6px; font-size: 11px; color: var(--ok); }
 
 /* ===== 报告 ===== */
 .report-wrap { margin-top: 18px; }
@@ -212,6 +221,16 @@ form.newtask .btn-go:active { transform: translateY(0); }
         <label class="flabel">类目 <span class="freq">必选</span></label>
         <select id="f-category"></select>
         <div id="f-anchor-hint" class="fhint"></div>
+        <div id="f-custom-cat" style="display:none">
+          <label class="flabel">类目名（英文键，如 round_files）</label>
+          <input id="f-cat-key" placeholder="round_files">
+          <label class="flabel">类目展示名</label>
+          <input id="f-cat-label" placeholder="Round Files 圆锉">
+          <label class="flabel">打标标准 label.xlsx 路径 <span class="freq">必填</span></label>
+          <input id="f-cat-labelxlsx" placeholder="/Users/haiyi/Desktop/Round Files/xxx_label.xlsx">
+          <label class="flabel">已有打标成品 tag_full.json <span class="fopt">可选（留空=从零打标）</span></label>
+          <input id="f-cat-tagjson" placeholder="/path/to/tag_full.json（留空则从零打标）">
+        </div>
       </div>
 
       <div id="f-keywords-wrap" style="display:none">
@@ -351,7 +370,12 @@ async function selectTask(id, silent) {
         <div class="cdetail">${esc(sp.detail ?? "")}</div>
         <div class="opts">${opts.map(o => `
           <button class="optbtn" onclick="decide('${id}', '${esc(o.split("（")[0].trim())}')">${esc(o)}</button>`).join("")}
-          <button class="optbtn" onclick="decideCustom('${id}')">✍️ 自定义 JSON 拍板（锚点校准等）</button>
+          <div class="chatline">
+            <input id="chat-input" placeholder='💬 直接说人话：如「锚点 LU&MN 营收 144883.52」「不修数」「两个报告都要」'
+              onkeydown="if(event.key==='Enter'){chatDecide('${id}');}">
+            <button class="optbtn" style="white-space:nowrap" onclick="chatDecide('${id}')">发送 →</button>
+          </div>
+          <div id="chat-status" class="fhint" style="display:none"></div>
         </div>
       </div>`;
     document.getElementById("card-box").scrollIntoView({ behavior: "smooth", block: "center" });
@@ -391,20 +415,57 @@ async function decideCustom(id) {
   } catch { toast("JSON 解析失败", "err"); }
 }
 
+/** 对话式拍板: 人话输入 → 后端解析 → JSON decision → resume */
+async function chatDecide(id) {
+  const input = document.getElementById("chat-input");
+  const text = input.value.trim();
+  if (!text) return;
+  const status = document.getElementById("chat-status");
+  const d = await api(`/api/tasks/${id}`);
+  const title = (d.suspendPayload ?? {}).title ?? "";
+  status.style.display = "";
+  status.textContent = "解析中…";
+  const parsed = await api("/api/parse-decision", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cardTitle: title, text }),
+  });
+  if (!parsed.ok) {
+    status.innerHTML = `⚠️ 没听懂: ${esc(parsed.reason)}<br>试试直接贴 JSON: {"mode":"anchor","anchor_brand":"LU&MN","anchor_revenue":144883.52}`;
+    return;
+  }
+  const decision = parsed.decision;
+  status.innerHTML = `✅ 已理解 → 拍板 <code>${esc(JSON.stringify(decision))}</code>（${esc(parsed.reason)}），提交中…`;
+  const r = await api(`/api/tasks/${id}/resume`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ decision }),
+  });
+  if (r.error) { toast("拍板失败：" + r.error, "err"); return; }
+  toast("已拍板 ✓", "ok");
+  await selectTask(id);
+}
+
 function initPreset() {
   // 类目注册表驱动（/api/presets）
   api("/api/presets").then((d) => {
     CATS = d.categories ?? [];
     const sel = document.getElementById("f-category");
     sel.innerHTML = CATS.map(c =>
-      `<option value="${esc(c.key)}">${esc(c.label)}${c.hasAnchor ? " · 已注册锚点" : ""}</option>`).join("");
+      `<option value="${esc(c.key)}">${esc(c.label)}${c.hasAnchor ? " · 已注册锚点" : ""}</option>`).join("")
+      + `<option value="__custom__">✨ 其他类目（自定义输入）</option>`;
     updateAnchorHint();
   }).catch(() => {});
 }
 function updateAnchorHint() {
-  const c = CATS.find(x => x.key === document.getElementById("f-category").value);
+  const v = document.getElementById("f-category").value;
+  document.getElementById("f-custom-cat").style.display = v === "__custom__" ? "" : "none";
+  const c = CATS.find(x => x.key === v);
   const hint = document.getElementById("f-anchor-hint");
-  if (!c) { hint.textContent = ""; return; }
+  if (!c) {
+    hint.innerHTML = v === "__custom__"
+      ? `✨ 任意类目: 填 label.xlsx（打标标准唯一权威）+ 可选历史打标成品。修数锚点在运行时拍板（宁问不猜）。`
+      : "";
+    return;
+  }
   hint.innerHTML = c.hasAnchor
     ? `锚点注册表已登记: ${esc(c.anchorBrand)} 真实 L12 营收 ${esc(String(c.anchorRevenue))}（修数卡会预填推荐，仍由你拍板）`
     : `⚠️ 该类目未登记修数锚点——运行到修数卡时需要你提供真实锚值（宁问不猜）`;
@@ -433,18 +494,36 @@ function assembleParams() {
   const type = document.getElementById("f-type").value;
   if (type === "refresh" || type === "insight" || type === "tag") {
     const key = document.getElementById("f-category").value;
-    const c = CATS.find(x => x.key === key);
-    if (!c) return { error: "请选择类目（类目注册表加载中或为空）" };
-    const slug = c.key.replace(/_/g, "-");
-    const base = {
-      category: c.key,
-      categoryLabel: c.label,
-      labelXlsx: c.labelXlsx,
-      tagJson: c.tagJson,
-      pipelineOut: `/tmp/psa_${slug}/out`,
-      workDir: `/tmp/psa_${slug}`,
-      threadId: `ui-${slug}-${Date.now()}`,
-    };
+    let base;
+    if (key === "__custom__") {
+      // 任意类目: 用户填类目名 + label 路径（+可选打标成品）
+      const catKey = document.getElementById("f-cat-key").value.trim();
+      const catLabel = document.getElementById("f-cat-label").value.trim() || catKey;
+      const labelXlsx = document.getElementById("f-cat-labelxlsx").value.trim();
+      const tagJson = document.getElementById("f-cat-tagjson").value.trim();
+      if (!catKey) return { error: "请输入类目名（英文键）" };
+      if (!labelXlsx) return { error: "请填 label.xlsx 路径（打标标准唯一权威，必填）" };
+      const slug = catKey.replace(/[^a-z0-9-]/gi, "-").toLowerCase();
+      base = {
+        category: catKey, categoryLabel: catLabel,
+        labelXlsx, tagJson,
+        pipelineOut: `/tmp/psa_${slug}/out`, workDir: `/tmp/psa_${slug}`,
+        threadId: `ui-${slug}-${Date.now()}`,
+      };
+    } else {
+      const c = CATS.find(x => x.key === key);
+      if (!c) return { error: "请选择类目（类目注册表加载中或为空）" };
+      const slug = c.key.replace(/_/g, "-");
+      base = {
+        category: c.key,
+        categoryLabel: c.label,
+        labelXlsx: c.labelXlsx,
+        tagJson: c.tagJson,
+        pipelineOut: `/tmp/psa_${slug}/out`,
+        workDir: `/tmp/psa_${slug}`,
+        threadId: `ui-${slug}-${Date.now()}`,
+      };
+    }
     // 报告类型预设（留空=运行时拍板）
     const rt = document.getElementById("f-report-type").value;
     if (rt) base.reportType = rt;
