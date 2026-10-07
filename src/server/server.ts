@@ -19,6 +19,7 @@ import { createServer } from "node:http";
 import { join } from "node:path";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { execSync } from "node:child_process";
 import { refreshWorkflow } from "../workflows/orchestrator.js";
 import { monitorWorkflow } from "../workflows/monitor.js";
 import { collectWorkflow } from "../workflows/collect.js";
@@ -28,6 +29,7 @@ import { LibSQLStore } from "@mastra/libsql";
 import { Mastra } from "@mastra/core";
 import { loadCategoryPresets, buildRefreshParams } from "./presets.js";
 import { parseDecision } from "./decision-parser.js";
+import { VENV_PY } from "../bridge/agent-step.js";
 
 const PORT = Number(process.env.PSA_PORT ?? 8123);
 const DATA_DIR = join(process.cwd(), ".psa");
@@ -150,7 +152,19 @@ app.get("/api/presets", (_req, res) => {
   }
 });
 
-/** 对话式拍板解析（自然语言 → JSON decision） */
+/** 类目数据检查（任意类目: 注册表匹配 + RDS 数据量——无数据引导取数） */
+app.post("/api/check-category", (req, res) => {
+  const { name } = req.body ?? {};
+  if (!name) return res.status(400).json({ error: "缺类目名" });
+  try {
+    const raw = execSync(`"${VENV_PY}" "${join(process.cwd(), "src", "server", "check_category.py")}" "${String(name).replace(/"/g, '\\"')}"`, {
+      encoding: "utf-8", timeout: 60000,
+    });
+    res.json(JSON.parse(raw));
+  } catch (e) {
+    res.status(500).json({ error: "类目检查失败: " + String(e).slice(0, 150) });
+  }
+});
 app.post("/api/parse-decision", async (req, res) => {
   const { cardTitle, text } = req.body ?? {};
   if (!cardTitle || !text) return res.status(400).json({ error: "缺 cardTitle 或 text" });
