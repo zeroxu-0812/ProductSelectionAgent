@@ -23,6 +23,7 @@ export interface PythonAgentConfig {
   threadId: string;
   resume?: boolean; // 断点续跑（Python LangGraph checkpoint 恢复）
   timeoutMs?: number;
+  onProgress?: (line: string) => void; // 流式进度行（P3 长任务进度条）
 }
 
 export interface CardPayload {
@@ -79,7 +80,19 @@ export function runPythonAgent(cfg: PythonAgentConfig): Promise<BridgeOutcome> {
       resolve({ kind: "error", error: `超时（${cfg.timeoutMs ?? 3600000}ms）`, exitCode: -1, stdout, stderr });
     }, cfg.timeoutMs ?? 3600000);
 
-    child.stdout.on("data", (d: Buffer) => { stdout += d.toString("utf-8"); });
+    child.stdout.on("data", (d: Buffer) => {
+      const chunk = d.toString("utf-8");
+      stdout += chunk;
+      // 流式进度回调（P3 长任务进度条）: 逐行推送非协议行
+      if (cfg.onProgress) {
+        for (const line of chunk.split("\n")) {
+          const t = line.trim();
+          if (t && !t.startsWith("CARD: ") && !t.startsWith("RESULT: ") && !t.startsWith("ERROR: ")) {
+            cfg.onProgress(t);
+          }
+        }
+      }
+    });
     child.stderr.on("data", (d: Buffer) => { stderr += d.toString("utf-8"); });
     child.on("close", (code) => {
       clearTimeout(timer);

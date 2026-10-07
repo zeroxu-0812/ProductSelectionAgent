@@ -1,6 +1,6 @@
 [
   {
-    "id": "t-07ac915923",
+    "id": "t-5232bbed8e",
     "type": "monitorKeywords",
     "params": {
       "source": "sif",
@@ -8,12 +8,12 @@
         "carbide burr"
       ],
       "live": true,
-      "workDir": "/tmp/psa_ui_mon",
-      "threadId": "ui-mon-1"
+      "workDir": "/tmp/psa_p3b",
+      "threadId": "p3b-1"
     },
     "status": "success",
-    "createdAt": "2026-10-07T07:25:17.307Z",
+    "createdAt": "2026-10-07T07:32:27.232Z",
     "decisions": [],
-    "runId": "3f4e7f50-52b3-4e1c-a0b2-649b88569ba0"
+    "runId": "33aae720-1c3b-4605-993a-f95ff96bcc5b"
   }
 ]

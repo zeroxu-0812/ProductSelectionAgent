@@ -56,6 +56,7 @@ interface TaskRec {
   status: string;
   createdAt: string;
   decisions: unknown[];
+  lastStep?: string; // P3 重启恢复: 挂起步骤名
 }
 function loadTasks(): TaskRec[] {
   try { return JSON.parse(readFileSync(TASK_STORE, "utf-8")); } catch { return []; }
@@ -89,7 +90,28 @@ async function runTask(t: TaskRec) {
   runRefs.set(t.id, { run, last: r0 });
   t.runId = run.runId;
   t.status = (r0.status as string) ?? "unknown";
+  // P3 重启恢复: 挂起步骤名持久化（重启后 resume 用）
+  if (t.status === "suspended") {
+    const steps = (r0.steps ?? {}) as Record<string, unknown>;
+    t.lastStep = Object.entries(steps).find(
+      ([, s]) => (s as { status: string }).status === "suspended",
+    )?.[0];
+  }
   saveTasks(loadTasks().map((x) => (x.id === t.id ? t : x)));
+}
+
+/** P3 重启恢复: 服务器启动时重建挂起任务的 run 引用 */
+async function restoreSuspended() {
+  for (const t of loadTasks().filter((x) => x.status === "suspended" && x.runId)) {
+    try {
+      const wf = mastra.getWorkflow(t.type);
+      const run = await wf.createRun({ runId: t.runId });
+      runRefs.set(t.id, { run, last: {} as Record<string, unknown> });
+      console.log(`[restore] 任务 ${t.id}（${t.type}）run 引用已恢复，挂起步骤 ${t.lastStep ?? "未知"}`);
+    } catch (e) {
+      console.log(`[restore] 任务 ${t.id} 恢复失败: ${String(e).slice(0, 120)}`);
+    }
+  }
 }
 
 /** 从最近一次 start/resume 返回值读状态（含挂起卡 payload） */
@@ -124,6 +146,14 @@ app.post("/api/tasks", async (req, res) => {
   if (!type || !WORKFLOW_INPUTS[type]) {
     return res.status(400).json({ error: `未知任务类型 ${type}（可选: ${Object.keys(WORKFLOW_INPUTS)}）` });
   }
+  // P3 类目任务锁: 同类目有活跃任务 → 拒绝（防 pipeline 目录互踩）
+  const category = (params?.category as string) ?? (params?.taskJson ? "collect-" + type : "");
+  const active = loadTasks().find((x) =>
+    (x.params?.category === category || (category.startsWith("collect-") && x.type === type))
+    && ["starting", "pending", "suspended", "running"].includes(x.status));
+  if (active && category) {
+    return res.status(409).json({ error: `类目 ${category} 已有活跃任务 ${active.id}（状态 ${active.status}）——请先完成或拍板`, activeTask: active.id });
+  }
   const id = "t-" + createHash("md5").update(`${type}-${Date.now()}-${Math.random()}`).digest("hex").slice(0, 10);
   const t: TaskRec = {
     id, type, params: params ?? {}, status: "starting", createdAt: new Date().toISOString(), decisions: [],
@@ -141,7 +171,16 @@ app.post("/api/tasks", async (req, res) => {
 app.get("/api/tasks/:id", async (req, res) => {
   const t = loadTasks().find((x) => x.id === req.params.id);
   if (!t) return res.status(404).json({ error: "任务不存在" });
-  res.json({ ...t, ...readRunState(t) });
+  const state = readRunState(t);
+  // P3 耗时统计
+  const elapsed = Math.round((Date.now() - new Date(t.createdAt).getTime()) / 1000);
+  // P3 进度日志尾部（workDir/progress.log，跨进程天然）
+  let progress: string[] = [];
+  try {
+    const log = readFileSync(join(String(t.params.workDir ?? ""), "progress.log"), "utf-8");
+    progress = log.split("\n").filter(Boolean).slice(-6);
+  } catch { progress = []; }
+  res.json({ ...t, ...state, elapsed, progress });
 });
 
 app.post("/api/tasks/:id/resume", async (req, res) => {
@@ -151,7 +190,8 @@ app.post("/api/tasks/:id/resume", async (req, res) => {
   const ref = runRefs.get(t.id);
   if (!ref) return res.status(400).json({ error: "run 引用不在进程内（服务器重启后请重新创建任务）" });
   const state = readRunState(t);
-  const step = state.suspendedStep as string | undefined;
+  const step = (state.suspendedStep as string | undefined)
+    ?? ((t as TaskRec & { lastStep?: string }).lastStep ?? undefined); // 重启恢复场景
   if (!step) return res.status(400).json({ error: `无挂起步骤可拍板（当前状态 ${state.status}）` });
   const run = ref.run as {
     resume: (o: { step: string; resumeData: { decision: unknown } }) => Promise<Record<string, unknown>>;
@@ -178,7 +218,9 @@ function readdirSafe(dir: string): string[] {
 }
 
 const server = createServer(app);
-server.listen(PORT, () => {
-  console.log(`[psa-server] 选品 agent 服务已启动: http://localhost:${PORT}`);
-  console.log(`  GET /api/tasks · POST /api/tasks · POST /api/tasks/:id/resume · GET /api/tasks/:id/report`);
+restoreSuspended().then(() => {
+  server.listen(PORT, () => {
+    console.log(`[psa-server] 选品 agent 服务已启动: http://localhost:${PORT}`);
+    console.log(`  GET /api/tasks · POST /api/tasks · POST /api/tasks/:id/resume · GET /api/tasks/:id/report`);
+  });
 });

@@ -17,6 +17,7 @@ export async function runAgentStep(
   resumeData: { decision?: unknown } | undefined,
   suspend: (payload: unknown) => Promise<unknown>,
   debug = false,
+  onProgress?: (line: string) => void,
 ): Promise<BridgeOutcome> {
   if (resumeData?.decision !== undefined) {
     writeDecision(workDir, resumeData.decision);

@@ -29,6 +29,34 @@ sys.path.insert(0, os.environ["V2_HOME"])  # TS 桥注入：V2 项目根
 AGENTS = {}  # 延迟导入（避免未用到时 import 失败）
 
 
+class _Tee:
+    """stdout tee: 协议行照常到 stdout，同时全量落 progress.log（P3 进度轮询）。"""
+
+    def __init__(self, stream, path):
+        self.stream = stream
+        self.f = open(path, "a", encoding="utf-8")
+
+    def write(self, s):
+        self.stream.write(s)
+        self.stream.flush()
+        if s:  # 含纯换行的 write 也保留（print 的 end="\n" 是独立 write）
+            self.f.write(s)
+            self.f.flush()
+
+    def flush(self):
+        self.stream.flush()
+        self.f.flush()
+
+    def reconfigure(self, **kw):
+        # api 模块 import 时会调 reconfigure(encoding=...)——透传给底层
+        if hasattr(self.stream, "reconfigure"):
+            self.stream.reconfigure(**kw)
+
+    def __getattr__(self, name):
+        # 其他属性（isatty 等）透传底层流
+        return getattr(self.stream, name)
+
+
 def _load_agents():
     from core.tagging.agent.api import run_tagging_agent
     from core.collect.agent.api import run_collection_agent
@@ -46,6 +74,11 @@ def main() -> int:
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--thread-id", default="")
     args = ap.parse_args()
+    # P3 进度日志: 每轮 spawn 覆盖写（resume 轮次显示最新轮进度）
+    _wd = os.path.dirname(args.task_json) or "."
+    _plog = os.path.join(_wd, "progress.log")
+    open(_plog, "w", encoding="utf-8").close()
+    sys.stdout = _Tee(sys.stdout, _plog)
 
     _load_agents()
     if args.agent not in AGENTS:
