@@ -26,6 +26,7 @@ import { insightWorkflow } from "../workflows/insight.js";
 import { tagWorkflow } from "../workflows/tag.js";
 import { LibSQLStore } from "@mastra/libsql";
 import { Mastra } from "@mastra/core";
+import { loadCategoryPresets, buildRefreshParams } from "./presets.js";
 
 const PORT = Number(process.env.PSA_PORT ?? 8123);
 const DATA_DIR = join(process.cwd(), ".psa");
@@ -67,8 +68,8 @@ function saveTasks(tasks: TaskRec[]) {
 
 // ---- workflow 输入映射（refresh 的 7 字段从 params 来）----
 const WORKFLOW_INPUTS: Record<string, string[]> = {
-  refresh: ["category", "categoryLabel", "labelXlsx", "tagJson", "pipelineOut", "workDir", "threadId"],
-  monitorKeywords: ["source", "keywords", "live", "workDir", "threadId"],
+  refresh: ["category", "categoryLabel", "labelXlsx", "tagJson", "pipelineOut", "workDir", "threadId", "reportType"],
+  monitorKeywords: ["source", "keywords", "live", "workDir", "threadId", "withFunnel"],
   collect: ["source", "taskJson", "live", "workDir", "threadId"],
   insight: ["category", "categoryLabel", "tagJson", "labelXlsx", "pipelineOut", "workDir", "threadId"],
   tag: ["category", "labelXlsx", "tagJson", "workDir", "threadId"],
@@ -138,6 +139,15 @@ app.use(express.json({ limit: "2mb" }));
 app.use(express.static(join(process.cwd(), "public"))); // Web 前端（P2）
 
 app.get("/api/health", (_req, res) => res.json({ ok: true, workflows: Object.keys(mastra.getWorkflows?.() ?? {}) }));
+
+/** 类目预设（新建任务表单: 类目下拉 + 资产路径推导 + 锚点提示） */
+app.get("/api/presets", (_req, res) => {
+  try {
+    res.json({ categories: loadCategoryPresets() });
+  } catch (e) {
+    res.status(500).json({ error: "类目注册表读取失败: " + String(e).slice(0, 150) });
+  }
+});
 
 app.get("/api/tasks", (_req, res) => res.json(loadTasks()));
 

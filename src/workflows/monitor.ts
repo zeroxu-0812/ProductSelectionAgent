@@ -19,6 +19,7 @@ const monitorStep = createStep({
     live: z.boolean(),
     workDir: z.string(),
     threadId: z.string(),
+    withFunnel: z.boolean().optional(), // 表单勾选（默认带漏斗）
   }),
   resumeSchema: z.object({ decision: z.unknown() }),
   outputSchema: z.object({
@@ -38,7 +39,7 @@ const monitorStep = createStep({
           mode: "keywords",
           keywords: inputData.keywords,
           granularity: "week",
-          with_funnel: true,
+          with_funnel: inputData.withFunnel ?? true,
         },
         live: inputData.live,
         run_dir: `${inputData.workDir}/monitor`,
@@ -72,6 +73,7 @@ const monitorWorkflow = createWorkflow({
     live: z.boolean(),
     workDir: z.string(),
     threadId: z.string(),
+    withFunnel: z.boolean().optional(),
   }),
   outputSchema: z.object({
     status: z.string(),

@@ -72,6 +72,16 @@ form.newtask .btn-go:active { transform: translateY(0); }
   border: 1px solid var(--border); background: rgba(10,14,22,.6); color: var(--sub);
   cursor: pointer; transition: all .15s; }
 .preset button:hover { border-color: var(--accent); color: var(--accent); }
+.flabel { font-size: 12px; color: var(--sub); display: flex; align-items: center; gap: 6px; }
+.freq { font-size: 10px; color: var(--warn); border: 1px solid rgba(255,180,84,.4);
+  padding: 1px 6px; border-radius: 8px; }
+.fopt { font-size: 10.5px; color: var(--faint); }
+.fhint { font-size: 11px; color: var(--accent); line-height: 1.6; padding: 6px 10px;
+  background: rgba(91,157,255,.06); border-radius: 8px; border: 1px dashed rgba(91,157,255,.25); }
+.fcheck { font-size: 12px; color: var(--sub); display: flex; align-items: center; gap: 7px;
+  cursor: pointer; user-select: none; }
+.fcheck input { accent-color: var(--accent); }
+.adv-toggle { padding: 4px 0; }
 
 /* ===== 任务列表 ===== */
 .task-card { border: 1px solid var(--border); border-left: 3px solid var(--faint);
@@ -197,8 +207,44 @@ form.newtask .btn-go:active { transform: translateY(0); }
         <option value="insight">洞察 · 报告生成</option>
         <option value="tag">打标 · 增量打标</option>
       </select>
-      <div class="preset" id="preset"></div>
-      <textarea id="f-params" rows="8" placeholder='{"category":"square_nose", ...} 参数 JSON'></textarea>
+
+      <div id="f-category-wrap">
+        <label class="flabel">类目 <span class="freq">必选</span></label>
+        <select id="f-category"></select>
+        <div id="f-anchor-hint" class="fhint"></div>
+      </div>
+
+      <div id="f-keywords-wrap" style="display:none">
+        <label class="flabel">关键词 <span class="freq">一行一个</span></label>
+        <textarea id="f-keywords" rows="3" placeholder="carbide burr&#10;die grinder bits"></textarea>
+        <label class="fcheck"><input type="checkbox" id="f-funnel" checked> 带漏斗 + CPC 数据（零积分）</label>
+      </div>
+
+      <div id="f-collect-wrap" style="display:none">
+        <label class="flabel">数据源</label>
+        <select id="f-source">
+          <option value="sellersprite">卖家精灵（RDS 查库）</option>
+          <option value="keepa">Keepa（ASIN 补源）</option>
+          <option value="sif">Sif（关键词趋势）</option>
+        </select>
+        <label class="flabel">目标</label>
+        <textarea id="f-collect-target" rows="2" placeholder='ASIN 列表（每行一个）或 {"node_id_path":"...","months":"..."}'></textarea>
+      </div>
+
+      <div id="f-report-wrap" style="display:none">
+        <label class="flabel">报告类型 <span class="fopt">可留空（留空运行时问你）</span></label>
+        <select id="f-report-type">
+          <option value="">运行时再拍板（每次必问）</option>
+          <option value="singularity">仅奇点分析</option>
+          <option value="mi">仅市场洞察</option>
+          <option value="both">双报告融合</option>
+        </select>
+      </div>
+
+      <label class="fcheck adv-toggle"><input type="checkbox" id="f-advanced"> 高级模式（直接编辑参数 JSON）</label>
+      <div id="f-json-wrap" style="display:none">
+        <textarea id="f-params" rows="8" placeholder='{"category":"square_nose", ...} 参数 JSON'></textarea>
+      </div>
       <button class="btn-go" type="submit">启动任务</button>
     </form>
     <h2 style="margin-top:22px"><span class="icon">📋</span>任务列表</h2>
@@ -219,32 +265,11 @@ form.newtask .btn-go:active { transform: translateY(0); }
 <script>
 const API = "";
 let curTask = null;
+let CATS = []; // 类目注册表缓存（/api/presets）
 
 const TYPE_NAMES = { refresh: "全流程", monitorKeywords: "监控巡检", collect: "取数",
   insight: "洞察", tag: "打标" };
 const TYPE_ICONS = { refresh: "🔄", monitorKeywords: "📡", collect: "📥", insight: "📊", tag: "🏷️" };
-
-const PRESETS = {
-  "SN 全流程": {
-    type: "refresh",
-    params: { category: "square_nose", categoryLabel: "Square Nose End Mills",
-      labelXlsx: "/Users/haiyi/Desktop/Square Nose End Mills/Square_Nose_End_Mills_label.xlsx",
-      tagJson: "/Users/haiyi/Desktop/Square Nose End Mills/sn_tag_full_20260911.json",
-      pipelineOut: "/tmp/psa_ui_sn/out", workDir: "/tmp/psa_ui_sn", threadId: "ui-sn-" + Date.now() },
-  },
-  "CB 全流程": {
-    type: "refresh",
-    params: { category: "cutting_burrs", categoryLabel: "Cutting Burrs",
-      labelXlsx: "/Users/haiyi/Desktop/Cutting Burrs/cutting burrs_label.xlsx",
-      tagJson: "/Users/haiyi/Desktop/Cutting Burrs/cb_tag_full_20260914.json",
-      pipelineOut: "/tmp/psa_ui_cb/out", workDir: "/tmp/psa_ui_cb", threadId: "ui-cb-" + Date.now() },
-  },
-  "关键词巡检": {
-    type: "monitorKeywords",
-    params: { source: "sif", keywords: ["carbide burr", "die grinder bits"], live: true,
-      workDir: "/tmp/psa_ui_mon", threadId: "ui-mon-" + Date.now() },
-  },
-};
 
 function toast(msg, kind) {
   const t = document.getElementById("toast");
@@ -367,21 +392,93 @@ async function decideCustom(id) {
 }
 
 function initPreset() {
-  document.getElementById("preset").innerHTML = Object.keys(PRESETS).map(k =>
-    `<button type="button" onclick="applyPreset('${k}')">${k}</button>`).join("");
+  // 类目注册表驱动（/api/presets）
+  api("/api/presets").then((d) => {
+    CATS = d.categories ?? [];
+    const sel = document.getElementById("f-category");
+    sel.innerHTML = CATS.map(c =>
+      `<option value="${esc(c.key)}">${esc(c.label)}${c.hasAnchor ? " · 已注册锚点" : ""}</option>`).join("");
+    updateAnchorHint();
+  }).catch(() => {});
 }
-function applyPreset(k) {
-  const p = PRESETS[k];
-  document.getElementById("f-type").value = p.type;
-  document.getElementById("f-params").value = JSON.stringify(p.params, null, 2);
-  toast(`已填充「${k}」参数`, "ok");
+function updateAnchorHint() {
+  const c = CATS.find(x => x.key === document.getElementById("f-category").value);
+  const hint = document.getElementById("f-anchor-hint");
+  if (!c) { hint.textContent = ""; return; }
+  hint.innerHTML = c.hasAnchor
+    ? `锚点注册表已登记: ${esc(c.anchorBrand)} 真实 L12 营收 ${esc(String(c.anchorRevenue))}（修数卡会预填推荐，仍由你拍板）`
+    : `⚠️ 该类目未登记修数锚点——运行到修数卡时需要你提供真实锚值（宁问不猜）`;
+}
+document.getElementById("f-category").addEventListener("change", updateAnchorHint);
+
+// 类型切换 → 动态业务字段
+document.getElementById("f-type").addEventListener("change", (e) => {
+  const t = e.target.value;
+  document.getElementById("f-category-wrap").style.display =
+    ["refresh", "insight", "tag"].includes(t) ? "" : "none";
+  document.getElementById("f-keywords-wrap").style.display =
+    t === "monitorKeywords" ? "" : "none";
+  document.getElementById("f-collect-wrap").style.display =
+    t === "collect" ? "" : "none";
+  document.getElementById("f-report-wrap").style.display =
+    ["refresh", "insight"].includes(t) ? "" : "none";
+});
+// 高级模式折叠
+document.getElementById("f-advanced").addEventListener("change", (e) => {
+  document.getElementById("f-json-wrap").style.display = e.target.checked ? "" : "none";
+});
+
+/** 业务字段 → 完整任务参数（技术路径自动推导） */
+function assembleParams() {
+  const type = document.getElementById("f-type").value;
+  if (type === "refresh" || type === "insight" || type === "tag") {
+    const key = document.getElementById("f-category").value;
+    const c = CATS.find(x => x.key === key);
+    if (!c) return { error: "请选择类目（类目注册表加载中或为空）" };
+    const slug = c.key.replace(/_/g, "-");
+    const base = {
+      category: c.key,
+      categoryLabel: c.label,
+      labelXlsx: c.labelXlsx,
+      tagJson: c.tagJson,
+      pipelineOut: `/tmp/psa_${slug}/out`,
+      workDir: `/tmp/psa_${slug}`,
+      threadId: `ui-${slug}-${Date.now()}`,
+    };
+    // 报告类型预设（留空=运行时拍板）
+    const rt = document.getElementById("f-report-type").value;
+    if (rt) base.reportType = rt;
+    return base;
+  }
+  if (type === "monitorKeywords") {
+    const kws = document.getElementById("f-keywords").value.split("\n")
+      .map(s => s.trim()).filter(Boolean);
+    if (!kws.length) return { error: "请至少输入一个关键词（一行一个）" };
+    return {
+      source: "sif", keywords: kws, live: true,
+      withFunnel: document.getElementById("f-funnel").checked,
+      workDir: "/tmp/psa_ui_mon", threadId: "ui-mon-" + Date.now(),
+    };
+  }
+  if (type === "collect") {
+    const src = document.getElementById("f-source").value;
+    const target = document.getElementById("f-collect-target").value.trim();
+    if (!target) return { error: "请输入取数目标（ASIN 列表或类目参数）" };
+    return { source: src, target, live: false, workDir: "/tmp/psa_ui_col", threadId: "ui-col-" + Date.now() };
+  }
+  return { error: "未知类型" };
 }
 
 document.getElementById("newtask").addEventListener("submit", async (e) => {
   e.preventDefault();
   let params;
-  try { params = JSON.parse(document.getElementById("f-params").value); }
-  catch { toast("参数 JSON 解析失败", "err"); return; }
+  if (document.getElementById("f-advanced").checked) {
+    try { params = JSON.parse(document.getElementById("f-params").value); }
+    catch { toast("参数 JSON 解析失败", "err"); return; }
+  } else {
+    params = assembleParams();
+    if (params.error) { toast(params.error, "err"); return; }
+  }
   const type = document.getElementById("f-type").value;
   const r = await api("/api/tasks", {
     method: "POST", headers: { "Content-Type": "application/json" },

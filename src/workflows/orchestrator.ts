@@ -67,6 +67,7 @@ const tagStep = createStep({
     pipelineOut: z.string(),
     workDir: z.string(),
     threadId: z.string(),
+    reportType: z.string().optional(), // 透传给 insight（表单预设报告类型）
   }),
   resumeSchema: z.object({ decision: z.unknown() }),
   outputSchema: z.object({
@@ -79,6 +80,7 @@ const tagStep = createStep({
     pipelineOut: z.string(),
     workDir: z.string(),
     threadId: z.string(),
+    reportType: z.string().optional(),
   }),
   execute: async ({ inputData, resumeData, suspend }) => {
     const outcome = await runAgentStep(
@@ -107,6 +109,7 @@ const tagStep = createStep({
       pipelineOut: inputData.pipelineOut,
       workDir: inputData.workDir,
       threadId: inputData.threadId,
+      reportType: (inputData as Record<string, unknown>).reportType as string | undefined,
     };
   },
 });
@@ -125,6 +128,7 @@ const insightStep = createStep({
     pipelineOut: z.string(),
     workDir: z.string(),
     threadId: z.string(),
+    reportType: z.string().optional(), // 表单预设报告类型（空=运行时弹卡）
   }),
   resumeSchema: z.object({ decision: z.unknown() }),
   outputSchema: z.object({
@@ -145,7 +149,9 @@ const insightStep = createStep({
         label_xlsx: inputData.labelXlsx,
         mode: "rds",
         pipeline_out: inputData.pipelineOut,
-        task: {}, // 修数方式不预置 → 修数卡真实弹（每次必问）
+        // 报告类型预置（表单拍板过→不弹卡）；修数方式不预置（每次必问铁律）
+        report_mode: inputData.reportType ?? undefined,
+        task: {},
         run_dir: `${inputData.workDir}/insight`,
       },
       resumeData,
@@ -176,6 +182,7 @@ const refreshWorkflow = createWorkflow({
     pipelineOut: z.string(),
     workDir: z.string(),
     threadId: z.string(),
+    reportType: z.string().optional(),
   }),
   outputSchema: z.object({
     html: z.string().nullable(),
