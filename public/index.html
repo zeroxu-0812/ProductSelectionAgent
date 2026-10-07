@@ -123,16 +123,7 @@ body { background: var(--bg); color: var(--txt); font-family: -apple-system, "Pi
   </div>
 </div>
 
-<div id="chat"><div class="chat-inner" id="chat-inner">
-  <div class="welcome">
-    <div class="big">🛠️</div>
-    <h2>输入任务，自动调用对应 Agent</h2>
-    <p>「分析 square_nose」→ 全流程<br>
-    「监控 carbide burr、die grinder bits」→ 关键词巡检<br>
-    「取数 Creatine」→ 卖家精灵月采<br>
-    「打标 cutting_burrs」→ 增量打标</p>
-  </div>
-</div></div>
+<div id="chat"><div class="chat-inner" id="chat-inner"></div></div>
 
 <div class="inputwrap"><div class="inputinner">
   <div class="chips">
@@ -141,7 +132,7 @@ body { background: var(--bg); color: var(--txt); font-family: -apple-system, "Pi
     <button class="chip" onclick="setInput('取数 Hole Saws')">📥 取数</button>
   </div>
   <div class="inputrow">
-    <textarea id="input" rows="1" placeholder="分析类目 / 监控关键词 / 取数 / 打标…（Enter 发送）"></textarea>
+    <textarea id="input" rows="1" placeholder=""></textarea>
     <button class="send" id="send" onclick="send()">发送</button>
   </div>
 </div></div>
@@ -204,8 +195,7 @@ const TYPE_NAMES = { refresh: "全流程分析", monitorKeywords: "监控巡检"
 
 async function newChat() {
   activeTask = null;
-  chatEl().innerHTML = `<div class="welcome"><div class="big">🛠️</div>
-    <h2>新会话开始</h2><p>直接说你要做什么</p></div>`;
+  chatEl().innerHTML = "";
 }
 
 function setInput(t) { document.getElementById("input").value = t; document.getElementById("input").focus(); }
