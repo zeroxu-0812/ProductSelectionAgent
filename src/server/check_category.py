@@ -7,6 +7,8 @@ check_category.py —— 类目数据检查（POST /api/check-category 后端脚
 """
 import json
 import sys
+import os
+import glob
 
 V2_HOME = "/Users/haiyi/Desktop/洞察/肯特合金/Jobber Drill Bits/V2视图预览"
 sys.path.insert(0, V2_HOME)
@@ -26,6 +28,35 @@ if not reg and name:
         if name.lower() in k.lower() or name.lower() in str(v.get("category_label", "")).lower():
             reg = {"key": k, **v}
             break
+
+# 2. 打标文件自动定位（洞察任务免人工输入打标路径）：
+#    注册表 tag_json → 存在性 → 失效则探测 Desktop/{类目}/ 目录 *tag_full*.json
+tag_info = {"path": None, "exists": False, "source": None, "candidates": []}
+def _find_tag_file(cat_label: str) -> list:
+    hits = []
+    for base in [os.path.expanduser(f"~/Desktop/{cat_label}"), os.path.expanduser(f"~/Desktop")]:
+        if os.path.isdir(base):
+            hits += sorted(glob.glob(os.path.join(base, "*tag_full*.json")))
+    return sorted(set(hits))
+
+if reg and reg.get("tag_json"):
+    tag_info["path"] = reg["tag_json"]
+    tag_info["source"] = "registry"
+    tag_info["exists"] = os.path.exists(reg["tag_json"])
+    if not tag_info["exists"]:
+        cands = _find_tag_file(reg.get("category_label", ""))
+        tag_info["candidates"] = cands
+        if cands:
+            tag_info["path"] = cands[-1]  # 最新
+            tag_info["source"] = "auto-probe"
+            tag_info["exists"] = True
+else:
+    cands = _find_tag_file(name)
+    tag_info["candidates"] = cands
+    if cands:
+        tag_info["path"] = cands[-1]
+        tag_info["source"] = "auto-probe"
+        tag_info["exists"] = True
 
 # 2. RDS 查库（类目数据量）
 rds = {"asin_count": 0, "months": 0, "latest_month": None}
@@ -57,4 +88,4 @@ try:
 except Exception as e:
     rds["error"] = str(e)[:150]
 
-print(json.dumps({"query": name, "registered": reg, "rds": rds}, ensure_ascii=False))
+print(json.dumps({"query": name, "registered": reg, "rds": rds, "tag_file": tag_info}, ensure_ascii=False))
