@@ -6,164 +6,292 @@
 <title>选品 Agent 工作台</title>
 <style>
 :root {
-  --bg: #0d1117; --card: #161b22; --border: #30363d;
-  --txt: #e6edf3; --sub: #8b949e; --accent: #58a6ff;
-  --ok: #3fb950; --warn: #d29922; --err: #f85149; --susp: #a371f7;
+  --bg: #0a0e14; --bg2: #0f1420; --card: rgba(22, 28, 40, .72);
+  --border: rgba(120, 140, 180, .14); --border-hi: rgba(120, 160, 255, .35);
+  --txt: #e8edf5; --sub: #8b98ad; --faint: #5d6a80;
+  --accent: #5b9dff; --accent2: #8b6cff;
+  --ok: #3ddc84; --warn: #ffb454; --err: #ff6b6b; --susp: #b48cff;
+  --grad: linear-gradient(120deg, #1a2540 0%, #141b2e 55%, #221a3a 100%);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
 body { background: var(--bg); color: var(--txt);
-  font-family: -apple-system, "PingFang SC", sans-serif; padding: 20px; }
-.topbar { display: flex; align-items: center; gap: 12px; padding: 16px 20px;
-  background: linear-gradient(135deg, #1f2a3a 0%, #161b22 100%);
-  border: 1px solid var(--border); border-radius: 14px; margin-bottom: 20px; }
-.topbar h1 { font-size: 20px; }
-.topbar .sub { color: var(--sub); font-size: 13px; }
-.topbar .health { margin-left: auto; display: flex; gap: 8px; align-items: center; }
-.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); }
-.dot.off { background: var(--err); }
-.grid { display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: start; }
-.panel { background: var(--card); border: 1px solid var(--border);
-  border-radius: 14px; padding: 18px; }
-.panel h2 { font-size: 15px; margin-bottom: 14px; color: var(--accent); }
-.task-card { border: 1px solid var(--border); border-left: 4px solid var(--sub);
-  border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; cursor: pointer;
-  transition: all .15s; background: #0d1117; }
-.task-card:hover { border-color: var(--accent); }
-.task-card .row1 { display: flex; align-items: center; gap: 8px; }
-.task-card .type { font-weight: 600; font-size: 14px; }
-.badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-left: auto; }
-.badge.suspended { background: #2d2438; color: var(--susp); border: 1px solid var(--susp); }
-.badge.success { background: #14281b; color: var(--ok); border: 1px solid var(--ok); }
-.badge.error, .badge.failed { background: #2d1517; color: var(--err); border: 1px solid var(--err); }
-.badge.pending, .badge.starting { background: #241f12; color: var(--warn); border: 1px solid var(--warn); }
-.task-card .row2 { font-size: 12px; color: var(--sub); margin-top: 6px; }
-.task-card.active { border-color: var(--accent); border-left-width: 5px; }
-#detail .steps { display: flex; flex-direction: column; gap: 8px; }
-.step { display: flex; align-items: center; gap: 10px; padding: 9px 12px;
-  border-radius: 8px; background: #0d1117; border: 1px solid var(--border); font-size: 13px; }
-.step .sdot { width: 8px; height: 8px; border-radius: 50%; background: var(--sub); }
-.step.success .sdot { background: var(--ok); }
-.step.suspended .sdot { background: var(--susp); box-shadow: 0 0 8px var(--susp); }
-.step.error .sdot { background: var(--err); }
-.step .sname { font-weight: 600; }
-.step .sstatus { margin-left: auto; font-size: 11px; color: var(--sub); }
-.cardbox { margin-top: 16px; border: 1px solid var(--susp); border-radius: 12px;
-  background: #1a1428; padding: 16px; }
-.cardbox .ctitle { font-size: 15px; font-weight: 700; color: var(--susp); margin-bottom: 10px; }
-.cardbox .cdetail { font-size: 13px; color: var(--sub); line-height: 1.6; margin-bottom: 14px;
-  white-space: pre-wrap; }
-.cardbox .opts { display: flex; flex-direction: column; gap: 8px; }
-.optbtn { padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border);
-  background: #0d1117; color: var(--txt); cursor: pointer; text-align: left; font-size: 13px; }
-.optbtn:hover { border-color: var(--susp); background: #221b33; }
-.optbtn.primary { border-color: var(--susp); color: #d2a8ff; }
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  min-height: 100vh; padding: 0 0 40px; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(120,140,180,.25); border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ===== Hero 横幅 ===== */
+.hero { position: sticky; top: 0; z-index: 50; backdrop-filter: blur(14px);
+  background: linear-gradient(120deg, rgba(20,28,48,.92), rgba(16,20,34,.92));
+  border-bottom: 1px solid var(--border); padding: 18px 28px;
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.hero .logo { width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+  background: var(--grad); display: flex; align-items: center; justify-content: center;
+  font-size: 20px; box-shadow: 0 4px 16px rgba(91,157,255,.25); }
+.hero .title-wrap h1 { font-size: 20px; letter-spacing: .5px; }
+.hero .title-wrap .slogan { font-size: 12px; color: var(--sub); margin-top: 2px; }
+.hero .stats { margin-left: auto; display: flex; gap: 10px; flex-wrap: wrap; }
+.stat { padding: 8px 14px; border-radius: 12px; background: var(--card);
+  border: 1px solid var(--border); font-size: 12px; color: var(--sub);
+  display: flex; align-items: center; gap: 8px; transition: all .2s; }
+.stat b { font-size: 16px; color: var(--txt); }
+.stat.online b { color: var(--ok); }
+.stat.suspended b { color: var(--susp); }
+.stat.done b { color: var(--accent); }
+
+/* ===== 布局 ===== */
+.grid { display: grid; grid-template-columns: 380px 1fr; gap: 22px;
+  padding: 22px 28px; align-items: start; }
+.panel { background: var(--card); backdrop-filter: blur(10px);
+  border: 1px solid var(--border); border-radius: 18px; padding: 20px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.25); transition: border-color .2s; }
+.panel:hover { border-color: var(--border-hi); }
+.panel h2 { font-size: 14px; color: var(--accent); margin-bottom: 14px;
+  display: flex; align-items: center; gap: 8px; letter-spacing: .5px; }
+.panel h2 .icon { font-size: 16px; }
+
+/* ===== 新建任务 ===== */
 form.newtask { display: flex; flex-direction: column; gap: 10px; }
 form.newtask select, form.newtask input, form.newtask textarea {
-  background: #0d1117; border: 1px solid var(--border); color: var(--txt);
-  border-radius: 8px; padding: 9px 12px; font-size: 13px; }
-form.newtask button { padding: 10px; border-radius: 8px; background: var(--accent);
-  border: none; color: #0d1117; font-weight: 700; cursor: pointer; font-size: 14px; }
-.report-frame { width: 100%; height: 78vh; border: 1px solid var(--border);
-  border-radius: 12px; background: #fff; }
-.empty { color: var(--sub); font-size: 13px; text-align: center; padding: 30px 0; }
-.plog { margin-top: 14px; border: 1px solid var(--border); border-radius: 10px;
-  padding: 12px; background: #0d1117; }
-.plog h3 { font-size: 12px; color: var(--sub); margin-bottom: 8px; }
-.pline { font-family: ui-monospace, monospace; font-size: 11px; color: #9da9b5;
-  line-height: 1.7; white-space: pre-wrap; word-break: break-all; }
+  background: rgba(10, 14, 22, .8); border: 1px solid var(--border); color: var(--txt);
+  border-radius: 10px; padding: 10px 13px; font-size: 13px; transition: border-color .2s; }
+form.newtask select:focus, form.newtask textarea:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(91,157,255,.12); }
+form.newtask textarea { font-family: ui-monospace, monospace; font-size: 12px; resize: vertical; }
+form.newtask .btn-go { padding: 12px; border-radius: 12px; border: none; cursor: pointer;
+  font-size: 14px; font-weight: 700; color: #fff; letter-spacing: 1px;
+  background: linear-gradient(120deg, var(--accent), var(--accent2));
+  box-shadow: 0 4px 18px rgba(91,157,255,.35); transition: all .2s; }
+form.newtask .btn-go:hover { transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(91,157,255,.5); }
+form.newtask .btn-go:active { transform: translateY(0); }
 .preset { display: flex; gap: 6px; flex-wrap: wrap; }
-.preset button { font-size: 12px; padding: 5px 10px; border-radius: 14px;
-  border: 1px solid var(--border); background: #0d1117; color: var(--sub); cursor: pointer; }
-.preset button.on { border-color: var(--accent); color: var(--accent); }
-#reports-tab { display: none; }
+.preset button { font-size: 12px; padding: 6px 12px; border-radius: 20px;
+  border: 1px solid var(--border); background: rgba(10,14,22,.6); color: var(--sub);
+  cursor: pointer; transition: all .15s; }
+.preset button:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ===== 任务列表 ===== */
+.task-card { border: 1px solid var(--border); border-left: 3px solid var(--faint);
+  border-radius: 14px; padding: 13px 15px; margin-bottom: 10px; cursor: pointer;
+  transition: all .18s; background: rgba(10, 14, 22, .5); position: relative; overflow: hidden; }
+.task-card:hover { transform: translateY(-2px); border-color: var(--border-hi);
+  box-shadow: 0 6px 18px rgba(0,0,0,.3); }
+.task-card.active { border-color: var(--accent); background: rgba(91,157,255,.06); }
+.task-card .row1 { display: flex; align-items: center; gap: 8px; }
+.task-card .type { font-weight: 600; font-size: 14px; }
+.task-card .row2 { font-size: 11.5px; color: var(--faint); margin-top: 7px;
+  display: flex; gap: 10px; align-items: center; }
+.badge { font-size: 10.5px; padding: 3px 10px; border-radius: 20px; margin-left: auto;
+  font-weight: 600; letter-spacing: .5px; }
+.badge.suspended { background: rgba(180,140,255,.12); color: var(--susp); border: 1px solid rgba(180,140,255,.4);
+  animation: breath 2s ease-in-out infinite; }
+.badge.success { background: rgba(61,220,132,.1); color: var(--ok); border: 1px solid rgba(61,220,132,.35); }
+.badge.error, .badge.failed { background: rgba(255,107,107,.1); color: var(--err); border: 1px solid rgba(255,107,107,.35); }
+.badge.pending, .badge.starting, .badge.running { background: rgba(255,180,84,.1); color: var(--warn); border: 1px solid rgba(255,180,84,.35); }
+@keyframes breath { 0%,100% { box-shadow: 0 0 0 0 rgba(180,140,255,.35); }
+  50% { box-shadow: 0 0 0 5px rgba(180,140,255,0); } }
+/* 进度条（任务卡底部） */
+.task-card .bar { position: absolute; bottom: 0; left: 0; height: 2.5px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  transition: width .5s; border-radius: 0 4px 4px 0; }
+.empty { color: var(--faint); font-size: 13px; text-align: center; padding: 36px 10px; line-height: 1.8; }
+.empty .big { font-size: 26px; display: block; margin-bottom: 8px; opacity: .6; }
+
+/* ===== 详情 ===== */
+#detail-title { display: flex; align-items: center; gap: 10px; }
+#detail-title .tid { font-family: ui-monospace, monospace; font-size: 12px;
+  color: var(--faint); background: rgba(10,14,22,.7); padding: 4px 10px; border-radius: 8px; }
+.steps { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.step { display: flex; align-items: center; gap: 11px; padding: 10px 14px;
+  border-radius: 11px; background: rgba(10,14,22,.55); border: 1px solid var(--border);
+  font-size: 13px; transition: all .2s; }
+.step .sdot { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); flex-shrink: 0; }
+.step.success { border-color: rgba(61,220,132,.25); }
+.step.success .sdot { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+.step.suspended { border-color: rgba(180,140,255,.4); background: rgba(180,140,255,.05); }
+.step.suspended .sdot { background: var(--susp); box-shadow: 0 0 10px var(--susp);
+  animation: breath 1.6s ease-in-out infinite; }
+.step.error { border-color: rgba(255,107,107,.3); }
+.step.error .sdot { background: var(--err); }
+.step .sname { font-weight: 600; }
+.step .sstatus { margin-left: auto; font-size: 11px; color: var(--faint); }
+
+.plog { margin-top: 14px; border: 1px solid var(--border); border-radius: 14px;
+  padding: 14px; background: rgba(10,14,22,.65); }
+.plog h3 { font-size: 12px; color: var(--sub); margin-bottom: 10px;
+  display: flex; gap: 8px; align-items: center; }
+.pline { font-family: ui-monospace, "SF Mono", monospace; font-size: 11.5px; color: #9fb0c8;
+  line-height: 1.75; padding: 2px 0; border-bottom: 1px dashed rgba(120,140,180,.07);
+  white-space: pre-wrap; word-break: break-all; }
+.pline:last-child { border-bottom: none; }
+.pline.fresh { color: var(--txt); animation: fadein .4s; }
+@keyframes fadein { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; } }
+
+/* ===== 卡点弹窗 ===== */
+.cardbox { margin-top: 16px; border: 1px solid rgba(180,140,255,.45); border-radius: 16px;
+  background: linear-gradient(135deg, rgba(180,140,255,.1), rgba(26,20,40,.8));
+  padding: 20px; animation: fadein .3s; position: relative; overflow: hidden; }
+.cardbox::before { content: ""; position: absolute; inset: 0;
+  background: radial-gradient(600px 120px at 20% 0%, rgba(180,140,255,.15), transparent); }
+.cardbox .ctitle { font-size: 15.5px; font-weight: 700; color: #d9c6ff; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px; position: relative; }
+.cardbox .cpulse { width: 8px; height: 8px; border-radius: 50%; background: var(--susp);
+  animation: breath 1.4s ease-in-out infinite; }
+.cardbox .cdetail { font-size: 13px; color: var(--sub); line-height: 1.7; margin-bottom: 16px;
+  white-space: pre-wrap; position: relative; }
+.cardbox .opts { display: flex; flex-direction: column; gap: 8px; position: relative; }
+.optbtn { padding: 11px 15px; border-radius: 10px; border: 1px solid var(--border);
+  background: rgba(10,14,22,.7); color: var(--txt); cursor: pointer; text-align: left;
+  font-size: 13px; transition: all .15s; }
+.optbtn:hover { border-color: var(--susp); background: rgba(180,140,255,.1); transform: translateX(2px); }
+.optbtn.primary { border-color: var(--susp); color: #d9c6ff; font-weight: 600; }
+
+/* ===== 报告 ===== */
+.report-wrap { margin-top: 18px; }
+.report-frame { width: 100%; height: 76vh; border: 1px solid var(--border);
+  border-radius: 16px; background: #fff; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
+
+/* ===== Toast ===== */
+#toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: rgba(20,26,38,.95); border: 1px solid var(--border-hi); color: var(--txt);
+  padding: 12px 22px; border-radius: 12px; font-size: 13px; opacity: 0;
+  transition: all .25s; pointer-events: none; z-index: 99; backdrop-filter: blur(8px); }
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.ok { border-color: rgba(61,220,132,.5); }
+#toast.err { border-color: rgba(255,107,107,.5); }
+
+@media (max-width: 900px) {
+  .grid { grid-template-columns: 1fr; padding: 14px; }
+  .hero { padding: 14px 16px; }
+  .hero .stats { margin-left: 0; width: 100%; }
+}
 </style>
 </head>
 <body>
-<div class="topbar">
-  <h1>🛠️ 选品 Agent 工作台</h1>
-  <span class="sub">五智能体集群 · HITL 人在环 · Mastra 编排</span>
-  <div class="health"><span class="dot" id="hdot"></span><span id="htext" class="sub">检查中…</span></div>
+
+<div class="hero">
+  <div class="logo">🛠️</div>
+  <div class="title-wrap">
+    <h1>选品 Agent 工作台</h1>
+    <div class="slogan">五智能体集群 · HITL 人在环 · 真值锚定校准</div>
+  </div>
+  <div class="stats">
+    <div class="stat online"><span>🟢</span><div>服务<b id="st-online">-</b></div></div>
+    <div class="stat suspended"><span>⏸</span><div>待拍板<b id="st-susp">0</b></div></div>
+    <div class="stat"><span>⚙️</span><div>运行中<b id="st-run">0</b></div></div>
+    <div class="stat done"><span>✅</span><div>已完成<b id="st-done">0</b></div></div>
+  </div>
 </div>
 
 <div class="grid">
   <div class="panel">
-    <h2>新建任务</h2>
+    <h2><span class="icon">🚀</span>新建任务</h2>
     <form class="newtask" id="newtask">
       <select id="f-type">
-        <option value="refresh">refresh — 全流程（打标+洞察）</option>
-        <option value="monitorKeywords">监控 — Sif 关键词巡检</option>
-        <option value="collect">取数 — 三源采集</option>
-        <option value="insight">洞察 — 报告生成</option>
-        <option value="tag">打标 — 打标增量</option>
+        <option value="refresh">全流程 · 打标 + 洞察 + 双报告</option>
+        <option value="monitorKeywords">监控巡检 · Sif 关键词趋势</option>
+        <option value="collect">取数 · 三源采集</option>
+        <option value="insight">洞察 · 报告生成</option>
+        <option value="tag">打标 · 增量打标</option>
       </select>
       <div class="preset" id="preset"></div>
-      <textarea id="f-params" rows="9" placeholder='{"category":"square_nose", ...} 参数 JSON'></textarea>
-      <button type="submit">🚀 启动任务</button>
+      <textarea id="f-params" rows="8" placeholder='{"category":"square_nose", ...} 参数 JSON'></textarea>
+      <button class="btn-go" type="submit">启动任务</button>
     </form>
-    <h2 style="margin-top:20px">任务列表</h2>
-    <div id="tasks"></div>
+    <h2 style="margin-top:22px"><span class="icon">📋</span>任务列表</h2>
+    <div id="tasks"><div class="empty"><span class="big">📭</span>暂无任务<br>点击上方类目预设，开始第一次分析</div></div>
   </div>
 
   <div class="panel" id="detail">
     <h2 id="detail-title">任务详情</h2>
-    <div class="empty">← 选择左侧任务查看</div>
+    <div class="empty"><span class="big">👈</span>选择左侧任务查看详情<br>任务运行时这里会实时显示步骤进度与拍板卡片</div>
     <div id="steps-box"></div>
     <div id="card-box"></div>
     <div id="report-box"></div>
   </div>
 </div>
 
+<div id="toast"></div>
+
 <script>
 const API = "";
 let curTask = null;
-let timer = null;
 
 const TYPE_NAMES = { refresh: "全流程", monitorKeywords: "监控巡检", collect: "取数",
   insight: "洞察", tag: "打标" };
+const TYPE_ICONS = { refresh: "🔄", monitorKeywords: "📡", collect: "📥", insight: "📊", tag: "🏷️" };
 
 const PRESETS = {
-  square_nose: {
+  "SN 全流程": {
     type: "refresh",
     params: { category: "square_nose", categoryLabel: "Square Nose End Mills",
       labelXlsx: "/Users/haiyi/Desktop/Square Nose End Mills/Square_Nose_End_Mills_label.xlsx",
       tagJson: "/Users/haiyi/Desktop/Square Nose End Mills/sn_tag_full_20260911.json",
       pipelineOut: "/tmp/psa_ui_sn/out", workDir: "/tmp/psa_ui_sn", threadId: "ui-sn-" + Date.now() },
   },
-  cutting_burrs: {
+  "CB 全流程": {
     type: "refresh",
     params: { category: "cutting_burrs", categoryLabel: "Cutting Burrs",
       labelXlsx: "/Users/haiyi/Desktop/Cutting Burrs/cutting burrs_label.xlsx",
       tagJson: "/Users/haiyi/Desktop/Cutting Burrs/cb_tag_full_20260914.json",
       pipelineOut: "/tmp/psa_ui_cb/out", workDir: "/tmp/psa_ui_cb", threadId: "ui-cb-" + Date.now() },
   },
-  monitor: {
+  "关键词巡检": {
     type: "monitorKeywords",
     params: { source: "sif", keywords: ["carbide burr", "die grinder bits"], live: true,
       workDir: "/tmp/psa_ui_mon", threadId: "ui-mon-" + Date.now() },
   },
 };
 
+function toast(msg, kind) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "show" + (kind ? " " + kind : "");
+  clearTimeout(t._h);
+  t._h = setTimeout(() => { t.className = ""; }, 3200);
+}
 async function api(path, opts) {
   const r = await fetch(API + path, opts);
   return r.json();
 }
-function badge(s) {
-  const cls = ["suspended","success","failed","error"].includes(s) ? s
-    : ["pending","starting"].includes(s) ? "pending" : "";
-  return `<span class="badge ${cls}">${s}</span>`;
-}
 function esc(s) { return String(s ?? "").replace(/[&<>"]/g,
   c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c])); }
+function fmtElapsed(sec) {
+  if (sec == null) return "";
+  if (sec < 60) return `${sec}秒`;
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return m < 60 ? `${m}分${s}秒` : `${Math.floor(m/60)}时${m%60}分`;
+}
+const STATUS_ZH = { suspended: "待拍板", success: "已完成", running: "运行中",
+  pending: "排队中", starting: "启动中", failed: "失败", error: "出错" };
 
 async function refreshTasks() {
-  const tasks = await api("/api/tasks");
+  let tasks;
+  try { tasks = await api("/api/tasks"); } catch { tasks = []; }
   const box = document.getElementById("tasks");
-  if (!tasks.length) { box.innerHTML = '<div class="empty">暂无任务</div>'; return; }
+  const stats = { susp: 0, run: 0, done: 0 };
+  for (const t of tasks) {
+    if (t.status === "suspended") stats.susp++;
+    else if (["starting", "pending", "running"].includes(t.status)) stats.run++;
+    else if (t.status === "success") stats.done++;
+  }
+  document.getElementById("st-susp").textContent = stats.susp;
+  document.getElementById("st-run").textContent = stats.run;
+  document.getElementById("st-done").textContent = stats.done;
+  if (!tasks.length) {
+    box.innerHTML = '<div class="empty"><span class="big">📭</span>暂无任务<br>点击上方类目预设，开始第一次分析</div>';
+    return;
+  }
   box.innerHTML = tasks.map(t => `
     <div class="task-card ${t.id === curTask ? "active" : ""}" onclick="selectTask('${t.id}')">
-      <div class="row1"><span class="type">${TYPE_NAMES[t.type] ?? t.type}</span>${badge(t.status)}</div>
-      <div class="row2">${t.id} · ${new Date(t.createdAt).toLocaleTimeString()}
-        ${t.params?.category ? " · " + esc(t.params.category) : ""}</div>
+      <div class="row1"><span class="type">${TYPE_ICONS[t.type] ?? "•"} ${TYPE_NAMES[t.type] ?? t.type}</span>
+        <span class="badge ${["suspended","success","failed","error"].includes(t.status) ? t.status : "pending"}">${STATUS_ZH[t.status] ?? t.status}</span></div>
+      <div class="row2"><span>${t.id}</span><span>${t.params?.category ?? ""}</span>
+        <span style="margin-left:auto">${new Date(t.createdAt).toLocaleTimeString()}</span></div>
+      <div class="bar" style="width:${t.status === "success" ? "100%" : t.status === "suspended" ? "72%" : "30%"}"></div>
     </div>`).join("");
   if (curTask) await selectTask(curTask, true);
 }
@@ -171,41 +299,42 @@ async function refreshTasks() {
 async function selectTask(id, silent) {
   curTask = id;
   const d = await api(`/api/tasks/${id}`);
-  document.getElementById("detail-title").textContent = `任务详情 · ${id}`;
+  document.getElementById("detail-title").innerHTML =
+    `任务详情 <span class="tid">${esc(id)}</span>`;
   document.getElementById("card-box").innerHTML = "";
   document.getElementById("report-box").innerHTML = "";
-  const mins = Math.floor((d.elapsed ?? 0) / 60), secs = (d.elapsed ?? 0) % 60;
   const steps = d.steps ?? {};
   const stepNames = Object.keys(steps);
   const stepsHtml = stepNames.length ? `
     <div class="steps">${stepNames.map(k => {
       const st = steps[k].status ?? "pending";
       return `<div class="step ${st}"><span class="sdot"></span>
-        <span class="sname">${esc(k)}</span><span class="sstatus">${esc(st)}</span></div>`;
-    }).join("")}</div>` : '<div class="empty">步骤执行中…</div>';
+        <span class="sname">${esc(k)}</span><span class="sstatus">${esc(STATUS_ZH[st] ?? st)}</span></div>`;
+    }).join("")}</div>` : '<div class="empty"><span class="big">⏳</span>步骤执行中…</div>';
   const progressHtml = (d.progress ?? []).length ? `
-    <div class="plog"><h3>📋 实时进度（耗时 ${mins}分${secs}秒）</h3>${d.progress.map(p =>
-      `<div class="pline">${esc(p)}</div>`).join("")}</div>`
-    : `<div class="plog"><h3>📋 实时进度（耗时 ${mins}分${secs}秒）</h3><div class="empty">等待输出…</div></div>`;
+    <div class="plog"><h3>📋 实时进度 <span style="color:var(--faint)">· 耗时 ${fmtElapsed(d.elapsed)}</span></h3>
+    ${d.progress.map(p => `<div class="pline">${esc(p)}</div>`).join("")}</div>`
+    : `<div class="plog"><h3>📋 实时进度 <span style="color:var(--faint)">· 耗时 ${fmtElapsed(d.elapsed)}</span></h3>
+    <div class="empty" style="padding:14px">等待输出…</div></div>`;
   document.getElementById("steps-box").innerHTML = stepsHtml + progressHtml;
   const sp = d.suspendPayload;
   if (d.suspendedStep && sp) {
     const opts = sp.options ?? [];
     document.getElementById("card-box").innerHTML = `
       <div class="cardbox">
-        <div class="ctitle">⏸ 需要你拍板：${esc(sp.title ?? "")}</div>
+        <div class="ctitle"><span class="cpulse"></span>需要你拍板 · ${esc(sp.title ?? "")}</div>
         <div class="cdetail">${esc(sp.detail ?? "")}</div>
         <div class="opts">${opts.map(o => `
-          <button class="optbtn ${o.includes("（") && (o.includes("推荐") || o.includes("continue")) ? "primary" : ""}"
-            onclick="decide('${id}', '${esc(o.split("（")[0].trim())}')">${esc(o)}</button>`).join("")}
-          <button class="optbtn" onclick="decideCustom('${id}')">✍️ 自定义 JSON 拍板</button>
+          <button class="optbtn" onclick="decide('${id}', '${esc(o.split("（")[0].trim())}')">${esc(o)}</button>`).join("")}
+          <button class="optbtn" onclick="decideCustom('${id}')">✍️ 自定义 JSON 拍板（锚点校准等）</button>
         </div>
       </div>`;
+    document.getElementById("card-box").scrollIntoView({ behavior: "smooth", block: "center" });
   }
   if (d.status === "success") {
-    document.getElementById("report-box").innerHTML =
-      `<h2 style="margin-top:20px">📊 报告</h2>
-       <iframe class="report-frame" src="/api/tasks/${id}/report"></iframe>`;
+    document.getElementById("report-box").innerHTML = `
+      <div class="report-wrap"><h2 style="margin-bottom:12px"><span class="icon">📊</span>报告</h2>
+       <iframe class="report-frame" src="/api/tasks/${id}/report"></iframe></div>`;
   }
   if (!silent) refreshTasks();
 }
@@ -214,66 +343,71 @@ async function decide(id, choice) {
   const mapping = { "continue": "continue", "cancel": "cancel", "skip": "skip",
     "singularity": "singularity", "mi": "mi", "both": "both", "不修数": { mode: "none" } };
   const decision = mapping[choice] ?? choice;
-  await api(`/api/tasks/${id}/resume`, {
+  const r = await api(`/api/tasks/${id}/resume`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ decision }),
   });
+  if (r.error) { toast("拍板失败：" + r.error, "err"); return; }
+  toast("已拍板：'" + JSON.stringify(decision) + "' ✓", "ok");
   await selectTask(id);
 }
 async function decideCustom(id) {
-  const raw = prompt("输入 JSON 拍板（如 {\"mode\":\"anchor\",\"anchor_brand\":\"LU&MN\",\"anchor_revenue\":455347.81}）:");
+  const raw = prompt("输入 JSON 拍板（如 {\"mode\":\"anchor\",\"anchor_brand\":\"LU&MN\",\"anchor_revenue\":144883.52}）:");
   if (raw == null) return;
   try {
     const decision = JSON.parse(raw);
-    await api(`/api/tasks/${id}/resume`, {
+    const r = await api(`/api/tasks/${id}/resume`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ decision }),
     });
+    if (r.error) { toast("拍板失败：" + r.error, "err"); return; }
+    toast("已拍板 JSON ✓", "ok");
     await selectTask(id);
-  } catch { alert("JSON 解析失败"); }
+  } catch { toast("JSON 解析失败", "err"); }
 }
 
 function initPreset() {
-  const box = document.getElementById("preset");
-  box.innerHTML = Object.keys(PRESETS).map(k =>
+  document.getElementById("preset").innerHTML = Object.keys(PRESETS).map(k =>
     `<button type="button" onclick="applyPreset('${k}')">${k}</button>`).join("");
 }
 function applyPreset(k) {
   const p = PRESETS[k];
   document.getElementById("f-type").value = p.type;
   document.getElementById("f-params").value = JSON.stringify(p.params, null, 2);
+  toast(`已填充「${k}」参数`, "ok");
 }
 
 document.getElementById("newtask").addEventListener("submit", async (e) => {
   e.preventDefault();
   let params;
   try { params = JSON.parse(document.getElementById("f-params").value); }
-  catch { alert("参数 JSON 解析失败"); return; }
+  catch { toast("参数 JSON 解析失败", "err"); return; }
   const type = document.getElementById("f-type").value;
   const r = await api("/api/tasks", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ type, params }),
   });
-  if (r.error) { alert("⚠️ " + r.error); return; }
+  if (r.error) { toast(r.error, "err"); return; }
   curTask = r.id;
+  toast("任务已启动 🚀", "ok");
   await refreshTasks();
 });
 
 async function health() {
   try {
     await api("/api/health");
-    document.getElementById("hdot").className = "dot";
-    document.getElementById("htext").textContent = "服务在线";
+    document.getElementById("st-online").textContent = "在线";
+    document.getElementById("st-online").style.color = "var(--ok)";
   } catch {
-    document.getElementById("hdot").className = "dot off";
-    document.getElementById("htext").textContent = "服务离线";
+    document.getElementById("st-online").textContent = "离线";
+    document.getElementById("st-online").style.color = "var(--err)";
   }
 }
 
 initPreset();
 health();
 refreshTasks();
-timer = setInterval(refreshTasks, 3000);
+setInterval(refreshTasks, 3000);
 </script>
 </body>
 </html>
