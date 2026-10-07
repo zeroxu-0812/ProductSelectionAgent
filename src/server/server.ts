@@ -175,16 +175,20 @@ app.post("/api/parse-decision", async (req, res) => {
 
 /** 新类目冷启动（927 提维管道分阶段: prepare/extract/confirm/bridge/status） */
 app.post("/api/coldstart", (req, res) => {
-  const { action, category, supplements } = req.body ?? {};
+  const { action, category, supplements, rules, manual, approvedSources } = req.body ?? {};
   if (!action || !category) return res.status(400).json({ error: "缺 action 或 category" });
   const V2 = join(VENV_PY, "..", "..", "..");
   const cli = join(V2, "coldstart_tag", "coldstart_cli.py");
   try {
-    // supplements 先落盘（confirm 阶段吸收）
-    if (supplements) {
+    // supplements/rules/manual 先落盘（confirm/setdetect/setfinal 阶段读取）
+    if (supplements || rules || manual) {
       const ws = join(V2, "runs_coldstart", category.replace(/[^0-9A-Za-z]/g, "_").slice(0, 40));
       mkdirSync(join(ws, "output"), { recursive: true });
-      writeFileSync(join(ws, "output", "user_supplements.json"), JSON.stringify(supplements));
+      if (supplements) writeFileSync(join(ws, "output", "user_supplements.json"), JSON.stringify(supplements));
+      if (rules) writeFileSync(join(ws, "output", "set_rules.json"), JSON.stringify(rules));
+      if (manual) writeFileSync(join(ws, "output", "set_manual.jsonl"),
+        (Array.isArray(manual) ? manual : [manual]).map((m) => JSON.stringify(m)).join("\n") + "\n");
+      if (approvedSources) writeFileSync(join(ws, "output", "industry_sources_approved.json"), JSON.stringify(approvedSources));
     }
     const raw = execSync(`"${VENV_PY}" "${cli}" "${action}" "${String(category).replace(/"/g, '\\"')}"`, {
       encoding: "utf-8", timeout: 1800000, maxBuffer: 4 * 1024 * 1024,

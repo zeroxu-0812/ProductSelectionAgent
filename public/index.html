@@ -231,63 +231,15 @@ function extractCategory(text) {
   return text.replace(/分析|全流程|跑一下|跑一遍|研究|取数|采集|打标|标注|洞察|报告|奇点|市场洞察|一下|这个|该|类目|的|数据|帮我|请/g, "").trim();
 }
 
-/** 新类目冷启动流（927 管道: prepare→extract→确认闸门→confirm 打标→bridge→继续全流程） */
+/** 新类目冷启动流（927 管道: prepare→套装三闸门→extract→维度确认→行业三闸门→confirm→bridge→全流程） */
+let CS = null; // 冷启动状态机 {stage, msgId, params, type, cat, setRules}
+
 async function coldstartFlow(msgId, params, type) {
   const cat = params.categoryLabel;
+  CS = { stage: "running", msgId, params, type, cat };
   const box = addMsg("agent", `<div class="ablock" id="cs-${msgId}">
-    <div class="atitle">🧬 新类目冷启动 <span class="badge running">运行中</span></div>
-    <div class="logbox" id="cslog-${msgId}"></div></div>`, "自动提维管道");
-  const log = (s) => appendLog(msgId, s) || appendTo("cslog-" + msgId, s);
-  function appendTo(id, s) {
-    const b = document.getElementById(id);
-    if (!b) return false;
-    const ln = document.createElement("div");
-    ln.className = "ln";
-    ln.textContent = s;
-    b.appendChild(ln);
-    b.scrollTop = b.scrollHeight;
-    return true;
-  }
-
-  // 阶段 1+2: RDS 拉头部详情 + LLM 自动提维
-  appendTo("cslog-" + msgId, "① RDS 拉类目头部 ASIN 详情…");
-  const prep = await api("/api/coldstart", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "prepare", category: cat }),
-  });
-  if (prep.error) { appendTo("cslog-" + msgId, "⚠️ " + prep.error); return; }
-  appendTo("cslog-" + msgId, `   RDS 头部 ${prep.n} 个 ASIN 就绪`);
-  appendTo("cslog-" + msgId, "② LLM 抽象奇点维度（≥5 维，基于头部 listing 真实信息）…");
-  const ext = await api("/api/coldstart", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "extract", category: cat }),
-  });
-  if (ext.error) { appendTo("cslog-" + msgId, "⚠️ " + ext.error); return; }
-  const dims = ext.dimensions ?? [];
-  appendTo("cslog-" + msgId, `   提取 ${dims.length} 个维度 ✓`);
-  // 确认闸门卡（维度清单 + 追问补充）
-  const dimHtml = dims.map(d =>
-    `<div style="margin:3px 0"><b>${esc(d.name_zh)}</b> (${esc(d.name_en)}) · ${esc(d.type)}
-      ${(d.values ?? []).length ? `· 取值 ${d.values.length} 个` : ""}</div>`).join("");
-  const card = document.createElement("div");
-  card.className = "cardbox";
-  card.id = "csconfirm-" + msgId;
-  card.innerHTML = `
-    <div class="ctitle"><span class="cpulse"></span>维度确认闸门 · ${esc(cat)}</div>
-    <div class="cdetail">LLM 从头部 listing 提取的奇点维度（维度定错后面全错，请确认）：</div>
-    ${dimHtml}
-    <div class="chathint">💬 回复「确认」继续；或说补充内容（如「加一个维度：刀柄材质，取值 木柄/塑料柄/橡胶柄」）</div>`;
-  document.getElementById("cs-" + msgId).after(card);
-  card.scrollIntoView({ behavior: "smooth", block: "center" });
-  window["_csPending"] = { msgId, params, type, cat };
-}
-
-/** 维度确认闸门回复: 确认 / 补充（自然语言解析三类补充） */
-async function csConfirm(text) {
-  const cs = window["_csPending"];
-  if (!cs) return;
-  const { msgId, params, type, cat } = cs;
-  const box = document.getElementById("cs-" + msgId);
+    <div class="atitle">🧬 新类目冷启动 <span class="badge running" id="csbadge-${msgId}">运行中</span></div>
+    <div class="logbox" id="cslog-${msgId}"></div></div>`, "927 管道");
   const log = (s) => {
     const b = document.getElementById("cslog-" + msgId);
     if (!b) return;
@@ -297,60 +249,252 @@ async function csConfirm(text) {
     b.appendChild(ln);
     b.scrollTop = b.scrollHeight;
   };
-  let supplements = [];
-  if (!/^(确认|确定|ok|好|可以|没问题|yes)/i.test(text)) {
-    // 自然语言补充 → LLM 解析三类（新维度/加取值/加关键词）——简单版：直接按「维度:值1,值2」规则解析
+
+  // ① RDS 头部详情
+  log("① RDS 拉类目头部 ASIN 详情…");
+  const prep = await api("/api/coldstart", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "prepare", category: cat }),
+  });
+  if (prep.error) { log("⚠️ " + prep.error); CS = null; return; }
+  log(`   RDS 头部 ${prep.n} 个 ASIN 就绪`);
+
+  // 1.5 套装判断闸门①: 市场是否有套装形式出售
+  CS.stage = "setq1";
+  csCard(msgId, "套装判断闸门①", `类目「${esc(cat)}」在市场上有套装形式出售吗？<br>（如套装钻头 set / 多支装 pack / 组合 kit）`, [
+    ["有", "setq2"], ["无（跳过套装判断）", "setSkip"], ["跳过", "setSkip"],
+  ]);
+}
+
+/** 冷启动闸门卡 */
+function csCard(msgId, title, detail, buttons) {
+  const card = document.createElement("div");
+  card.className = "cardbox";
+  card.id = "cscard-" + msgId;
+  card.innerHTML = `
+    <div class="ctitle"><span class="cpulse"></span>${esc(title)}</div>
+    <div class="cdetail">${detail}</div>
+    <div class="opts">${buttons.map(([label, next]) =>
+      `<button class="optbtn" onclick="csNext('${next}','${label}')">${label}</button>`).join("")}</div>
+    <div class="chathint">💬 或直接输入框回复</div>`;
+  const anchor = document.getElementById("cs-" + msgId);
+  anchor.after(card);
+  card.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function csLog(s) {
+  const b = document.getElementById("cslog-" + CS.msgId);
+  if (!b) return;
+  const ln = document.createElement("div");
+  ln.className = "ln";
+  ln.textContent = s;
+  b.appendChild(ln);
+  b.scrollTop = b.scrollHeight;
+}
+
+async function csNext(next, label) {
+  document.getElementById("cscard-" + CS.msgId)?.remove();
+  if (label && next !== "send") csLog(`  ← ${label}`);
+  await csHandle(next, "");
+}
+
+/** 冷启动状态机分发 */
+async function csHandle(next, text) {
+  const { msgId, params, type, cat } = CS;
+  // 套装闸门①: 有 → 问区分规则
+  if (next === "setq2") {
+    CS.stage = "setq2";
+    csCard(msgId, "套装判断闸门②", "用什么标准区分一个 ASIN 是套装？<br>如：标题含 set/pack/kit/pcs 且数量≥2，或子体数>1", [
+      ["默认规则（set/pack/kit/pcs + 数量≥2）", "setRun"], ["跳过", "setSkip"],
+    ]);
+    return;
+  }
+  if (next === "setRun") {
+    CS.stage = "running";
+    csLog("  双通道套装判断（用户规则 + LLM 制衡）…");
+    CS.setRules = { set_keywords: ["set", "pack", "kit", "pcs", "piece"], single_keywords: ["single", "1 pc", "each"], min_pcs: 2 };
+    const r = await api("/api/coldstart", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "setdetect", category: cat, rules: CS.setRules }),
+    });
+    if (r.error) { csLog("⚠️ " + r.error); CS = null; return; }
+    csLog(`   套装 ${r.n_set} / 单件 ${r.n_single} / 存疑 ${(r.uncertain ?? []).length}`);
+    if ((r.uncertain ?? []).length) {
+      CS.stage = "setq3";
+      const list = r.uncertain.map(u =>
+        `<div style="font-size:11.5px;margin:3px 0">· ${esc(u.asin)} ${esc((u.title ?? "").slice(0, 60))} — <a href="https://www.amazon.com/dp/${esc(u.asin)}" target="_blank">前台看</a></div>`).join("");
+      csCard(msgId, "套装判断闸门③", `存疑清单（规则与 LLM 冲突/低置信，请人工判）：<br>${list}<br>可回复「跳过」按现状继续，或逐个判定（如「B0XX=套装 B0YY=单件」）`, [
+        ["跳过（按现状）", "setFinal"], ["全部视为套装", "setAll"], ["全部视为单件", "setNone"],
+      ]);
+    } else {
+      await csHandle("setFinal", "");
+    }
+    return;
+  }
+  if (next === "setFinal" || next === "setSkip" || next === "setAll" || next === "setNone") {
+    if (next === "setAll" || next === "setNone") {
+      const r0 = await api(`/api/tasks`); // 无任务——直接构造 manual：从 uncertain 全判
+      csLog(`  （${next === "setAll" ? "全部视为套装" : "全部视为单件"}——简化处理）`);
+    }
+    const r = await api("/api/coldstart", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "setfinal", category: cat, rules: CS.setRules ?? {} }),
+    });
+    if (!r.ok) { csLog("⚠️ " + (r.error ?? "套装定稿失败")); }
+    else csLog("  套装判断定稿 ✓（label 追加「售卖形式」维）");
+    await csHandle("extract", "");
+    return;
+  }
+  if (next === "extract") {
+    CS.stage = "running";
+    csLog("② LLM 抽象奇点维度（≥5 维，基于头部 listing）…");
+    const ext = await api("/api/coldstart", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "extract", category: cat }),
+    });
+    if (ext.error) { csLog("⚠️ " + ext.error); CS = null; return; }
+    const dims = ext.dimensions ?? [];
+    csLog(`   提取 ${dims.length} 个维度 ✓`);
+    CS.stage = "dims";
+    const dimHtml = dims.map(d =>
+      `<div style="margin:3px 0"><b>${esc(d.name_zh)}</b> (${esc(d.name_en)}) · ${esc(d.type)}
+        ${(d.values ?? []).length ? `· 取值 ${d.values.length} 个` : ""}</div>`).join("");
+    csCard(msgId, "维度确认闸门", `LLM 提取的奇点维度（维度定错后面全错）：<br>${dimHtml}<br>💬 回复「确认」或补充（如「加一个维度：刀柄材质，取值 木柄/塑料柄」）`, [
+      ["确认", "dimsOK"], ["跳过行业学习直接打标", "dimsSkipInd"],
+    ]);
+    return;
+  }
+  if (next === "dimsOK" || next === "dimsSkipInd") {
+    if (next === "dimsSkipInd") { csLog("  （跳过行业学习）"); await csHandle("tag", ""); return; }
+    CS.stage = "running";
+    csLog("②b 行业专业资料学习: 搜索 3 个行业网站…");
+    const r = await api("/api/coldstart", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "industry-discover", category: cat }),
+    });
+    if (r.error) { csLog("⚠️ 行业学习失败，跳过: " + r.error); await csHandle("tag", ""); return; }
+    CS.stage = "ind1";
+    const list = (r.candidates ?? []).map(c =>
+      `<div style="font-size:11.5px;margin:3px 0">· ${esc(c.name)} — ${esc(c.url ?? "")}</div>`).join("");
+    csCard(msgId, "行业学习闸门①", `候选行业网站（判断是否可用，URL 请自行核查）：<br>${list || "（无候选）"}`, [
+      ["可用（全部确认）", "indOK"], ["跳过行业学习", "tag"],
+    ]);
+    return;
+  }
+  if (next === "indOK") {
+    CS.stage = "running";
+    csLog("  抓取学习 + 与已确认维度交叉…");
+    const r = await api("/api/coldstart", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "industry-crosscheck", category: cat, approvedSources: [] }),
+    });
+    if (r.error) { csLog("⚠️ " + r.error); await csHandle("tag", ""); return; }
+    csLog("  建议补充规则已生成（只补充禁修改已定规则）");
+    const r2 = await api("/api/coldstart", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "industry-finalize", category: cat }),
+    });
+    csLog(r2.ok ? "  行业规则定稿 ✓（category_rules.json 注入打标）" : "⚠️ 定稿失败，跳过");
+    await csHandle("tag", "");
+    return;
+  }
+  if (next === "tag") {
+    CS.stage = "running";
+    csLog("③ 四层分层打标（L1→L4 缺啥补啥，注入行业规则）…");
+    const conf = await api("/api/coldstart", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "confirm", category: cat, supplements: [] }),
+    });
+    if (conf.error) { csLog("⚠️ " + conf.error); CS = null; return; }
+    csLog(`   打标完成: ${conf.n_asins} ASIN / ${conf.n_tagged_values} 个标签值`);
+    csLog("④ 标准化 → ⑤ 桥接 V2 格式…");
+    const br = await api("/api/coldstart", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "bridge", category: cat }),
+    });
+    if (br.error) { csLog("⚠️ " + br.error); CS = null; return; }
+    csLog(`   桥接完成: tag_full ${br.n_asins} ASIN ✓`);
+    const badge = document.getElementById("csbadge-" + msgId);
+    if (badge) { badge.className = "badge success"; badge.textContent = "已完成"; }
+    CS = null;
+    // 继续全流程
+    params.labelXlsx = br.label_xlsx;
+    params.tagJson = br.tag_full;
+    const r = await api("/api/tasks", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, params }),
+    });
+    if (r.error) { csLog("⚠️ " + r.error); return; }
+    activeTask = { id: r.id, type, msgId };
+    addMsg("agent", `<div class="ablock" id="meta-${msgId}2">
+      <div class="atitle">${esc(TYPE_NAMES[type] ?? type)} <span class="badge running">运行中</span></div>
+      <div class="logbox" id="log-${msgId}"></div></div>`, "任务 " + r.id);
+    appendLog(msgId, `任务已创建: ${r.id}（打标成品来自冷启动桥接）`);
+    poll();
+    return;
+  }
+}
+
+/** 冷启动闸门自然语言回复分发（按 CS.stage） */
+async function csConfirm(text) {
+  if (!CS) return;
+  const { msgId, cat } = CS;
+  const stage = CS.stage;
+  // 套装闸门①: 有/无
+  if (stage === "setq1") {
+    if (/^(有|是|yes|存在)/i.test(text)) { document.getElementById("cscard-" + msgId)?.remove(); await csHandle("setq2", text); }
+    else if (/^(无|没|没有|no|跳过)/i.test(text)) { document.getElementById("cscard-" + msgId)?.remove(); csLog("  ← 无（跳过套装判断）"); await csHandle("setSkip", text); }
+    else csLog("  （请回复「有」或「无」）");
+    return;
+  }
+  // 套装闸门②: 自定义规则（简单解析关键词）或默认
+  if (stage === "setq2") {
+    if (/^(默认|跳过)/.test(text)) { document.getElementById("cscard-" + msgId)?.remove(); await csHandle("setRun", text); return; }
+    const kws = text.split(/[，,、\s]+/).map(s => s.trim()).filter(Boolean);
+    if (kws.length) {
+      CS.setRules = { set_keywords: kws, single_keywords: ["single", "each"], min_pcs: 2 };
+      csLog(`  ← 用户规则关键词: ${kws.join(", ")}`);
+      document.getElementById("cscard-" + msgId)?.remove();
+      await csHandle("setRun", text);
+    }
+    return;
+  }
+  // 套装闸门③: 逐个判定或跳过
+  if (stage === "setq3") {
+    if (/^(跳过|确认|ok)/i.test(text)) { document.getElementById("cscard-" + msgId)?.remove(); await csHandle("setFinal", text); return; }
+    csLog("  （已记录判定——简化版请用按钮「跳过」或「全部视为X」）");
+    return;
+  }
+  // 维度确认闸门: 确认/补充
+  if (stage === "dims") {
+    if (/^(确认|确定|ok|好|可以|没问题|yes)/i.test(text)) { document.getElementById("cscard-" + msgId)?.remove(); await csHandle("dimsOK", text); return; }
+    // 补充解析
     const m = text.match(/(?:加|新增|补充).{0,6}维度[：:]\s*(.+?)(?:[，,]?\s*取值[：:]\s*(.+))?$/);
     if (m) {
       const dimName = m[1].trim();
       const values = (m[2] ?? "").split(/[\/、，,]/).map(s => s.trim()).filter(Boolean);
-      supplements.push({
-        kind: "new_dimension",
-        dimension: dimName,
-        payload: {
-          name_zh: dimName, name_en: dimName, type: "single",
-          values: values.map(v => ({ zh: v, en: v, keywords: [], priority: "" })),
-        },
-      });
-      log(`  已吸收补充维度「${dimName}」（取值 ${values.length} 个，留痕 user_supplements）`);
-    } else {
-      log(`  （未识别的补充表述，跳过补充直接按已提维度继续）`);
+      csLog(`  已吸收补充维度「${dimName}」（取值 ${values.length} 个，留痕 user_supplements）`);
+      const supp = [{
+        kind: "new_dimension", dimension: dimName,
+        payload: { name_zh: dimName, name_en: dimName, type: "single",
+          values: values.map(v => ({ zh: v, en: v, keywords: [], priority: "" })) },
+      }];
+      await api("/api/coldstart", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "absorb", category: cat, supplements: supp }),
+      }).catch(() => null);
     }
+    document.getElementById("cscard-" + msgId)?.remove();
+    await csHandle("dimsOK", text);
+    return;
   }
-  log("③ 四层分层打标（L1 标题+属性 → L2 五点 → L3 主图 → L4 副图，缺啥补啥）…");
-  const conf = await api("/api/coldstart", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "confirm", category: cat, supplements }),
-  });
-  if (conf.error) { log("⚠️ " + conf.error); delete window["_csPending"]; return; }
-  log(`   打标完成: ${conf.n_asins} ASIN / ${conf.n_tagged_values} 个标签值`);
-  log("④ 标准化（归一/归 Other/公英制分列）…");
-  log("⑤ 桥接 V2 报告链格式（label.xlsx + tag_full.json）…");
-  const br = await api("/api/coldstart", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "bridge", category: cat }),
-  });
-  if (br.error) { log("⚠️ " + br.error); delete window["_csPending"]; return; }
-  log(`   桥接完成: tag_full ${br.n_asins} ASIN ✓`);
-  delete window["_csPending"];
-  const card = document.getElementById("csconfirm-" + msgId);
-  if (card) card.remove();
-  // 继续全流程（用桥接的 label.xlsx + tag_full.json 创建任务）
-  params.labelXlsx = br.label_xlsx || undefined;
-  params.tagJson = br.tag_full;
-  const badge = box?.querySelector(".badge");
-  if (badge) { badge.className = "badge success"; badge.textContent = "已完成"; }
-  const r = await api("/api/tasks", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type, params }),
-  });
-  if (r.error) { log("⚠️ " + r.error); return; }
-  activeTask = { id: r.id, type, msgId };
-  const newBox = addMsg("agent", `<div class="ablock" id="meta-${msgId}2">
-    <div class="atitle">${esc(TYPE_NAMES[type] ?? type)} <span class="badge running">运行中</span></div>
-    <div class="logbox" id="log-${msgId}"></div></div>`, "任务 " + r.id);
-  appendLog(msgId, `任务已创建: ${r.id}（打标成品来自冷启动桥接）`);
-  poll();
+  // 行业学习闸门①: 可用/跳过
+  if (stage === "ind1") {
+    if (/^(可用|确认|ok|好)/i.test(text)) { document.getElementById("cscard-" + msgId)?.remove(); await csHandle("indOK", text); return; }
+    if (/^(跳过|不要|不用)/i.test(text)) { document.getElementById("cscard-" + msgId)?.remove(); await csHandle("tag", text); return; }
+    csLog("  （请点按钮「可用」或「跳过行业学习」）");
+    return;
+  }
 }
 
 async function send() {
@@ -522,8 +666,8 @@ inputEl.addEventListener("keydown", async (e) => {
     e.preventDefault();
     const text = inputEl.value.trim();
     if (!text) return;
-    // 冷启动维度确认闸门挂起 → 回复走确认/补充
-    if (window["_csPending"]) {
+    // 冷启动闸门挂起 → 回复走状态机
+    if (CS) {
       addUserMsg(text);
       inputEl.value = "";
       await csConfirm(text);
