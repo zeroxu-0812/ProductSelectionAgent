@@ -115,7 +115,7 @@ body { background: var(--bg); color: var(--txt); font-family: -apple-system, "Pi
   <div class="logo">🛠️</div>
   <div>
     <h1>选品 Agent</h1>
-    <div class="sub">对话式 · 五智能体集群 · 人在环拍板</div>
+    <div class="sub">对话式工作台</div>
   </div>
   <div class="right">
     <span class="dot" id="hdot"></span><span class="htext" id="htext">检查中…</span>
@@ -126,11 +126,11 @@ body { background: var(--bg); color: var(--txt); font-family: -apple-system, "Pi
 <div id="chat"><div class="chat-inner" id="chat-inner">
   <div class="welcome">
     <div class="big">🛠️</div>
-    <h2>直接说你要做什么，我来调用对应的 Agent</h2>
-    <p>「分析 square_nose 类目」—— 全流程（打标+洞察+双报告）<br>
-    「监控 carbide burr、die grinder bits」—— 关键词趋势巡检<br>
-    「取数 Creatine」—— 卖家精灵月采（自动反查类目）<br>
-    「打标 cutting_burrs」—— 增量打标</p>
+    <h2>输入任务，自动调用对应 Agent</h2>
+    <p>「分析 square_nose」→ 全流程<br>
+    「监控 carbide burr、die grinder bits」→ 关键词巡检<br>
+    「取数 Creatine」→ 卖家精灵月采<br>
+    「打标 cutting_burrs」→ 增量打标</p>
   </div>
 </div></div>
 
@@ -141,7 +141,7 @@ body { background: var(--bg); color: var(--txt); font-family: -apple-system, "Pi
     <button class="chip" onclick="setInput('取数 Hole Saws')">📥 取数</button>
   </div>
   <div class="inputrow">
-    <textarea id="input" rows="1" placeholder="直接说人话：分析类目 / 监控关键词 / 取数 / 打标…（Enter 发送，Shift+Enter 换行）"></textarea>
+    <textarea id="input" rows="1" placeholder="分析类目 / 监控关键词 / 取数 / 打标…（Enter 发送）"></textarea>
     <button class="send" id="send" onclick="send()">发送</button>
   </div>
 </div></div>
@@ -296,10 +296,10 @@ async function send() {
     t.remove();
     const msgId = "t" + Date.now();
     addMsg("agent", `<div class="ablock" id="meta-${msgId}">
-      <div class="atitle">🔀 已路由到「${esc(TYPE_NAMES[type] ?? type)}」 <span class="badge running">运行中</span></div>
+      <div class="atitle">${esc(TYPE_NAMES[type] ?? type)} <span class="badge running">运行中</span></div>
       <div class="logbox" id="log-${msgId}"></div></div>`, "任务 " + r.id);
     activeTask = { id: r.id, type, msgId };
-    appendLog(msgId, `任务已创建: ${r.id}（${TYPE_NAMES[type]}）`);
+    appendLog(msgId, `任务已创建: ${r.id}`);
     poll();
   } catch (e) {
     t.remove();
@@ -357,7 +357,7 @@ function renderCard(msgId, d) {
     <div class="ctitle"><span class="cpulse"></span>需要你拍板 · ${esc(sp.title ?? "")}</div>
     <div class="cdetail">${esc(sp.detail ?? "")}</div>
     <div class="opts">${opts.map(o => `<button class="optbtn" onclick="decide('${msgId}','${esc(o.split("（")[0].trim())}')">${esc(o)}</button>`).join("")}</div>
-    <div class="chathint">💬 或直接在下方输入框回复（如「两个都要」「不修数」「锚点 LU&MN 营收 144883.52」）</div>`;
+    <div class="chathint">💬 或直接在输入框回复（如「两个都要」「不修数」）</div>`;
   box.parentElement.after(card);
   card.scrollIntoView({ behavior: "smooth", block: "center" });
 }
