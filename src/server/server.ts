@@ -113,6 +113,7 @@ function readRunState(t: TaskRec): Record<string, unknown> {
 
 const app = express();
 app.use(express.json({ limit: "2mb" }));
+app.use(express.static(join(process.cwd(), "public"))); // Web 前端（P2）
 
 app.get("/api/health", (_req, res) => res.json({ ok: true, workflows: Object.keys(mastra.getWorkflows?.() ?? {}) }));
 

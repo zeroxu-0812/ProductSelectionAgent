@@ -1,21 +1,19 @@
 [
   {
-    "id": "t-28cfeedce1",
-    "type": "refresh",
+    "id": "t-07ac915923",
+    "type": "monitorKeywords",
     "params": {
-      "category": "square_nose",
-      "categoryLabel": "Square Nose End Mills",
-      "labelXlsx": "/Users/haiyi/Desktop/Square Nose End Mills/Square_Nose_End_Mills_label.xlsx",
-      "tagJson": "/Users/haiyi/Desktop/Square Nose End Mills/sn_tag_full_20260911.json",
-      "pipelineOut": "/tmp/psa_sn_out3",
-      "workDir": "/tmp/psa_sn_work3",
-      "threadId": "psa-sn-3"
+      "source": "sif",
+      "keywords": [
+        "carbide burr"
+      ],
+      "live": true,
+      "workDir": "/tmp/psa_ui_mon",
+      "threadId": "ui-mon-1"
     },
-    "status": "suspended",
-    "createdAt": "2026-10-07T07:16:03.284Z",
-    "decisions": [
-      "cancel"
-    ],
-    "runId": "ab6264d4-58a8-4ef4-a0a0-2aaaace7cde7"
+    "status": "success",
+    "createdAt": "2026-10-07T07:25:17.307Z",
+    "decisions": [],
+    "runId": "3f4e7f50-52b3-4e1c-a0b2-649b88569ba0"
   }
 ]
