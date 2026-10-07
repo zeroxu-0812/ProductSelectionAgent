@@ -231,6 +231,128 @@ function extractCategory(text) {
   return text.replace(/分析|全流程|跑一下|跑一遍|研究|取数|采集|打标|标注|洞察|报告|奇点|市场洞察|一下|这个|该|类目|的|数据|帮我|请/g, "").trim();
 }
 
+/** 新类目冷启动流（927 管道: prepare→extract→确认闸门→confirm 打标→bridge→继续全流程） */
+async function coldstartFlow(msgId, params, type) {
+  const cat = params.categoryLabel;
+  const box = addMsg("agent", `<div class="ablock" id="cs-${msgId}">
+    <div class="atitle">🧬 新类目冷启动 <span class="badge running">运行中</span></div>
+    <div class="logbox" id="cslog-${msgId}"></div></div>`, "自动提维管道");
+  const log = (s) => appendLog(msgId, s) || appendTo("cslog-" + msgId, s);
+  function appendTo(id, s) {
+    const b = document.getElementById(id);
+    if (!b) return false;
+    const ln = document.createElement("div");
+    ln.className = "ln";
+    ln.textContent = s;
+    b.appendChild(ln);
+    b.scrollTop = b.scrollHeight;
+    return true;
+  }
+
+  // 阶段 1+2: RDS 拉头部详情 + LLM 自动提维
+  appendTo("cslog-" + msgId, "① RDS 拉类目头部 ASIN 详情…");
+  const prep = await api("/api/coldstart", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "prepare", category: cat }),
+  });
+  if (prep.error) { appendTo("cslog-" + msgId, "⚠️ " + prep.error); return; }
+  appendTo("cslog-" + msgId, `   RDS 头部 ${prep.n} 个 ASIN 就绪`);
+  appendTo("cslog-" + msgId, "② LLM 抽象奇点维度（≥5 维，基于头部 listing 真实信息）…");
+  const ext = await api("/api/coldstart", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "extract", category: cat }),
+  });
+  if (ext.error) { appendTo("cslog-" + msgId, "⚠️ " + ext.error); return; }
+  const dims = ext.dimensions ?? [];
+  appendTo("cslog-" + msgId, `   提取 ${dims.length} 个维度 ✓`);
+  // 确认闸门卡（维度清单 + 追问补充）
+  const dimHtml = dims.map(d =>
+    `<div style="margin:3px 0"><b>${esc(d.name_zh)}</b> (${esc(d.name_en)}) · ${esc(d.type)}
+      ${(d.values ?? []).length ? `· 取值 ${d.values.length} 个` : ""}</div>`).join("");
+  const card = document.createElement("div");
+  card.className = "cardbox";
+  card.id = "csconfirm-" + msgId;
+  card.innerHTML = `
+    <div class="ctitle"><span class="cpulse"></span>维度确认闸门 · ${esc(cat)}</div>
+    <div class="cdetail">LLM 从头部 listing 提取的奇点维度（维度定错后面全错，请确认）：</div>
+    ${dimHtml}
+    <div class="chathint">💬 回复「确认」继续；或说补充内容（如「加一个维度：刀柄材质，取值 木柄/塑料柄/橡胶柄」）</div>`;
+  document.getElementById("cs-" + msgId).after(card);
+  card.scrollIntoView({ behavior: "smooth", block: "center" });
+  window["_csPending"] = { msgId, params, type, cat };
+}
+
+/** 维度确认闸门回复: 确认 / 补充（自然语言解析三类补充） */
+async function csConfirm(text) {
+  const cs = window["_csPending"];
+  if (!cs) return;
+  const { msgId, params, type, cat } = cs;
+  const box = document.getElementById("cs-" + msgId);
+  const log = (s) => {
+    const b = document.getElementById("cslog-" + msgId);
+    if (!b) return;
+    const ln = document.createElement("div");
+    ln.className = "ln";
+    ln.textContent = s;
+    b.appendChild(ln);
+    b.scrollTop = b.scrollHeight;
+  };
+  let supplements = [];
+  if (!/^(确认|确定|ok|好|可以|没问题|yes)/i.test(text)) {
+    // 自然语言补充 → LLM 解析三类（新维度/加取值/加关键词）——简单版：直接按「维度:值1,值2」规则解析
+    const m = text.match(/(?:加|新增|补充).{0,6}维度[：:]\s*(.+?)(?:[，,]?\s*取值[：:]\s*(.+))?$/);
+    if (m) {
+      const dimName = m[1].trim();
+      const values = (m[2] ?? "").split(/[\/、，,]/).map(s => s.trim()).filter(Boolean);
+      supplements.push({
+        kind: "new_dimension",
+        dimension: dimName,
+        payload: {
+          name_zh: dimName, name_en: dimName, type: "single",
+          values: values.map(v => ({ zh: v, en: v, keywords: [], priority: "" })),
+        },
+      });
+      log(`  已吸收补充维度「${dimName}」（取值 ${values.length} 个，留痕 user_supplements）`);
+    } else {
+      log(`  （未识别的补充表述，跳过补充直接按已提维度继续）`);
+    }
+  }
+  log("③ 四层分层打标（L1 标题+属性 → L2 五点 → L3 主图 → L4 副图，缺啥补啥）…");
+  const conf = await api("/api/coldstart", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "confirm", category: cat, supplements }),
+  });
+  if (conf.error) { log("⚠️ " + conf.error); delete window["_csPending"]; return; }
+  log(`   打标完成: ${conf.n_asins} ASIN / ${conf.n_tagged_values} 个标签值`);
+  log("④ 标准化（归一/归 Other/公英制分列）…");
+  log("⑤ 桥接 V2 报告链格式（label.xlsx + tag_full.json）…");
+  const br = await api("/api/coldstart", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "bridge", category: cat }),
+  });
+  if (br.error) { log("⚠️ " + br.error); delete window["_csPending"]; return; }
+  log(`   桥接完成: tag_full ${br.n_asins} ASIN ✓`);
+  delete window["_csPending"];
+  const card = document.getElementById("csconfirm-" + msgId);
+  if (card) card.remove();
+  // 继续全流程（用桥接的 label.xlsx + tag_full.json 创建任务）
+  params.labelXlsx = br.label_xlsx || undefined;
+  params.tagJson = br.tag_full;
+  const badge = box?.querySelector(".badge");
+  if (badge) { badge.className = "badge success"; badge.textContent = "已完成"; }
+  const r = await api("/api/tasks", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type, params }),
+  });
+  if (r.error) { log("⚠️ " + r.error); return; }
+  activeTask = { id: r.id, type, msgId };
+  const newBox = addMsg("agent", `<div class="ablock" id="meta-${msgId}2">
+    <div class="atitle">${esc(TYPE_NAMES[type] ?? type)} <span class="badge running">运行中</span></div>
+    <div class="logbox" id="log-${msgId}"></div></div>`, "任务 " + r.id);
+  appendLog(msgId, `任务已创建: ${r.id}（打标成品来自冷启动桥接）`);
+  poll();
+}
+
 async function send() {
   const input = document.getElementById("input");
   const text = input.value.trim();
@@ -278,8 +400,9 @@ async function send() {
         return;
       }
       if (!params.labelXlsx) {
+        // 新类目冷启动: 自动提维 → 确认闸门 → 四层打标 → 桥接 → 继续全流程
         t.remove();
-        addMsg("agent", `<div class="ablock">新类目「${esc(params.categoryLabel)}」需要打标标准 label.xlsx 路径，请直接发我文件路径：<br>例如 <code>label: /Users/haiyi/Desktop/Round Files/xxx_label.xlsx</code></div>`);
+        await coldstartFlow(msgId, params, type);
         return;
       }
     } else if (type === "monitorKeywords") {
@@ -399,6 +522,13 @@ inputEl.addEventListener("keydown", async (e) => {
     e.preventDefault();
     const text = inputEl.value.trim();
     if (!text) return;
+    // 冷启动维度确认闸门挂起 → 回复走确认/补充
+    if (window["_csPending"]) {
+      addUserMsg(text);
+      inputEl.value = "";
+      await csConfirm(text);
+      return;
+    }
     // 活跃任务挂起中 → 优先当拍板
     if (activeTask) {
       const d = await api(`/api/tasks/${activeTask.id}`);

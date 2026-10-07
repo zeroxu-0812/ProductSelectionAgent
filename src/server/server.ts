@@ -173,7 +173,29 @@ app.post("/api/parse-decision", async (req, res) => {
   res.json(r);
 });
 
-/** 对话意图路由（Codex 风格工作台: 自然语言 → 任务类型+参数） */
+/** 新类目冷启动（927 提维管道分阶段: prepare/extract/confirm/bridge/status） */
+app.post("/api/coldstart", (req, res) => {
+  const { action, category, supplements } = req.body ?? {};
+  if (!action || !category) return res.status(400).json({ error: "缺 action 或 category" });
+  const V2 = join(VENV_PY, "..", "..", "..");
+  const cli = join(V2, "coldstart_tag", "coldstart_cli.py");
+  try {
+    // supplements 先落盘（confirm 阶段吸收）
+    if (supplements) {
+      const ws = join(V2, "runs_coldstart", category.replace(/[^0-9A-Za-z]/g, "_").slice(0, 40));
+      mkdirSync(join(ws, "output"), { recursive: true });
+      writeFileSync(join(ws, "output", "user_supplements.json"), JSON.stringify(supplements));
+    }
+    const raw = execSync(`"${VENV_PY}" "${cli}" "${action}" "${String(category).replace(/"/g, '\\"')}"`, {
+      encoding: "utf-8", timeout: 1800000, maxBuffer: 4 * 1024 * 1024,
+    });
+    const out = raw.split("\n").filter((l) => l.trim().startsWith("{")).pop() ?? raw;
+    res.json(JSON.parse(out));
+  } catch (e) {
+    const stderr = String((e as { stderr?: Buffer | string }).stderr ?? "").slice(-400);
+    res.status(500).json({ error: "冷启动失败: " + stderr });
+  }
+});
 app.post("/api/chat-intent", async (req, res) => {
   const { text } = req.body ?? {};
   if (!text) return res.status(400).json({ error: "缺 text" });
