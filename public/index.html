@@ -259,6 +259,19 @@ async function coldstartFlow(msgId, params, type) {
   if (prep.error) { log("⚠️ " + prep.error); CS = null; return; }
   log(`   RDS 头部 ${prep.n} 个 ASIN 就绪`);
 
+  // 已注册类目（有 label 但无打标成品）→ 快通道: 沿用权威 label，不重新提维
+  if (params.labelXlsx) {
+    log("已注册类目 · label 体系已定 → 快通道（沿用 label 打标，不重新提维）…");
+    const r = await api("/api/coldstart", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "fromlabel", category: cat, labelXlsx: params.labelXlsx }),
+    });
+    if (!r.ok) { log("⚠️ " + (r.error ?? "label 转换失败")); CS = null; return; }
+    log(`   label 体系载入 ${r.n_dims} 维 ✓（来源 v2_label_xlsx）`);
+    await csHandle("tag", "");
+    return;
+  }
+
   // 1.5 套装判断闸门①: 市场是否有套装形式出售
   CS.stage = "setq1";
   csCard(msgId, "套装判断闸门①", `类目「${esc(cat)}」在市场上有套装形式出售吗？<br>（如套装钻头 set / 多支装 pack / 组合 kit）`, [
@@ -535,16 +548,9 @@ async function send() {
           params.tagJson = tf.path;
           window["_hint_" + msgId] = `已自动定位打标文件: ${tf.path}`;
         }
-      } else if (type === "insight") {
-        // 洞察任务必须有打标结果——无则引导先打标
-        t.remove();
-        addMsg("agent", `<div class="ablock">类目「${esc(params.categoryLabel)}」还没有打标结果，无法直接出洞察报告。<br>
-          ① 回复「全流程分析 ${esc(params.categoryLabel)}」——自动先打标再出报告<br>
-          ② 或把打标文件路径发我（<code>tag_json: /path/to/tag_full.json</code>）</div>`);
-        return;
       }
-      if (!params.labelXlsx) {
-        // 新类目冷启动: 自动提维 → 确认闸门 → 四层打标 → 桥接 → 继续全流程
+      if (!params.labelXlsx || !(tf.exists || params.tagJson)) {
+        // 无 label 或无打标成品 → 自动走冷启动（提维→确认→打标→桥接），不再要求人工上传
         t.remove();
         await coldstartFlow(msgId, params, type);
         return;

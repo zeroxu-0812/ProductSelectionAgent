@@ -175,7 +175,7 @@ app.post("/api/parse-decision", async (req, res) => {
 
 /** 新类目冷启动（927 提维管道分阶段: prepare/extract/confirm/bridge/status） */
 app.post("/api/coldstart", (req, res) => {
-  const { action, category, supplements, rules, manual, approvedSources } = req.body ?? {};
+  const { action, category, supplements, rules, manual, approvedSources, labelXlsx } = req.body ?? {};
   if (!action || !category) return res.status(400).json({ error: "缺 action 或 category" });
   const V2 = join(VENV_PY, "..", "..", "..");
   const cli = join(V2, "coldstart_tag", "coldstart_cli.py");
@@ -190,7 +190,7 @@ app.post("/api/coldstart", (req, res) => {
         (Array.isArray(manual) ? manual : [manual]).map((m) => JSON.stringify(m)).join("\n") + "\n");
       if (approvedSources) writeFileSync(join(ws, "output", "industry_sources_approved.json"), JSON.stringify(approvedSources));
     }
-    const raw = execSync(`"${VENV_PY}" "${cli}" "${action}" "${String(category).replace(/"/g, '\\"')}"`, {
+    const raw = execSync(`"${VENV_PY}" "${cli}" "${action}" "${String(category).replace(/"/g, '\\"')}"${labelXlsx ? ` "${String(labelXlsx).replace(/"/g, '\\"')}"` : ""}`, {
       encoding: "utf-8", timeout: 1800000, maxBuffer: 4 * 1024 * 1024,
     });
     const out = raw.split("\n").filter((l) => l.trim().startsWith("{")).pop() ?? raw;
