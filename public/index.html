@@ -3,611 +3,436 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>选品 Agent 工作台</title>
+<title>选品 Agent · 对话工作台</title>
 <style>
 :root {
-  --bg: #0a0e14; --bg2: #0f1420; --card: rgba(22, 28, 40, .72);
-  --border: rgba(120, 140, 180, .14); --border-hi: rgba(120, 160, 255, .35);
+  --bg: #0a0e14; --panel: #10151f; --border: rgba(120,140,180,.14);
   --txt: #e8edf5; --sub: #8b98ad; --faint: #5d6a80;
-  --accent: #5b9dff; --accent2: #8b6cff;
-  --ok: #3ddc84; --warn: #ffb454; --err: #ff6b6b; --susp: #b48cff;
-  --grad: linear-gradient(120deg, #1a2540 0%, #141b2e 55%, #221a3a 100%);
+  --accent: #5b9dff; --ok: #3ddc84; --warn: #ffb454; --err: #ff6b6b; --susp: #b48cff;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body { background: var(--bg); color: var(--txt);
-  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-  min-height: 100vh; padding: 0 0 40px; }
-::-webkit-scrollbar { width: 8px; height: 8px; }
+body { background: var(--bg); color: var(--txt); font-family: -apple-system, "PingFang SC", sans-serif;
+  height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+::-webkit-scrollbar { width: 7px; }
 ::-webkit-scrollbar-thumb { background: rgba(120,140,180,.25); border-radius: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
 
-/* ===== Hero 横幅 ===== */
-.hero { position: sticky; top: 0; z-index: 50; backdrop-filter: blur(14px);
-  background: linear-gradient(120deg, rgba(20,28,48,.92), rgba(16,20,34,.92));
-  border-bottom: 1px solid var(--border); padding: 18px 28px;
-  display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.hero .logo { width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
-  background: var(--grad); display: flex; align-items: center; justify-content: center;
-  font-size: 20px; box-shadow: 0 4px 16px rgba(91,157,255,.25); }
-.hero .title-wrap h1 { font-size: 20px; letter-spacing: .5px; }
-.hero .title-wrap .slogan { font-size: 12px; color: var(--sub); margin-top: 2px; }
-.hero .stats { margin-left: auto; display: flex; gap: 10px; flex-wrap: wrap; }
-.stat { padding: 8px 14px; border-radius: 12px; background: var(--card);
-  border: 1px solid var(--border); font-size: 12px; color: var(--sub);
-  display: flex; align-items: center; gap: 8px; transition: all .2s; }
-.stat b { font-size: 16px; color: var(--txt); }
-.stat.online b { color: var(--ok); }
-.stat.suspended b { color: var(--susp); }
-.stat.done b { color: var(--accent); }
+/* 顶栏 */
+.topbar { display: flex; align-items: center; gap: 12px; padding: 12px 20px;
+  border-bottom: 1px solid var(--border); background: var(--panel); z-index: 10; }
+.topbar .logo { width: 32px; height: 32px; border-radius: 9px; font-size: 16px;
+  background: linear-gradient(120deg, #1a2540, #221a3a); display: flex; align-items: center; justify-content: center; }
+.topbar h1 { font-size: 15px; letter-spacing: .4px; }
+.topbar .sub { font-size: 11.5px; color: var(--sub); }
+.topbar .right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+.dot.off { background: var(--err); }
+.topbar .htext { font-size: 12px; color: var(--sub); }
+.topbar .newchat { font-size: 12px; padding: 6px 14px; border-radius: 18px; border: 1px solid var(--border);
+  background: transparent; color: var(--sub); cursor: pointer; transition: all .15s; }
+.topbar .newchat:hover { color: var(--accent); border-color: var(--accent); }
 
-/* ===== 布局 ===== */
-.grid { display: grid; grid-template-columns: 380px 1fr; gap: 22px;
-  padding: 22px 28px; align-items: start; }
-.panel { background: var(--card); backdrop-filter: blur(10px);
-  border: 1px solid var(--border); border-radius: 18px; padding: 20px;
-  box-shadow: 0 8px 28px rgba(0,0,0,.25); transition: border-color .2s; }
-.panel:hover { border-color: var(--border-hi); }
-.panel h2 { font-size: 14px; color: var(--accent); margin-bottom: 14px;
-  display: flex; align-items: center; gap: 8px; letter-spacing: .5px; }
-.panel h2 .icon { font-size: 16px; }
-
-/* ===== 新建任务 ===== */
-form.newtask { display: flex; flex-direction: column; gap: 10px; }
-form.newtask select, form.newtask input, form.newtask textarea {
-  background: rgba(10, 14, 22, .8); border: 1px solid var(--border); color: var(--txt);
-  border-radius: 10px; padding: 10px 13px; font-size: 13px; transition: border-color .2s; }
-form.newtask select:focus, form.newtask textarea:focus {
-  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(91,157,255,.12); }
-form.newtask textarea { font-family: ui-monospace, monospace; font-size: 12px; resize: vertical; }
-form.newtask .btn-go { padding: 12px; border-radius: 12px; border: none; cursor: pointer;
-  font-size: 14px; font-weight: 700; color: #fff; letter-spacing: 1px;
-  background: linear-gradient(120deg, var(--accent), var(--accent2));
-  box-shadow: 0 4px 18px rgba(91,157,255,.35); transition: all .2s; }
-form.newtask .btn-go:hover { transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(91,157,255,.5); }
-form.newtask .btn-go:active { transform: translateY(0); }
-.preset { display: flex; gap: 6px; flex-wrap: wrap; }
-.preset button { font-size: 12px; padding: 6px 12px; border-radius: 20px;
-  border: 1px solid var(--border); background: rgba(10,14,22,.6); color: var(--sub);
-  cursor: pointer; transition: all .15s; }
-.preset button:hover { border-color: var(--accent); color: var(--accent); }
-.flabel { font-size: 12px; color: var(--sub); display: flex; align-items: center; gap: 6px; }
-.freq { font-size: 10px; color: var(--warn); border: 1px solid rgba(255,180,84,.4);
-  padding: 1px 6px; border-radius: 8px; }
-.fopt { font-size: 10.5px; color: var(--faint); }
-.fhint { font-size: 11px; color: var(--accent); line-height: 1.6; padding: 6px 10px;
-  background: rgba(91,157,255,.06); border-radius: 8px; border: 1px dashed rgba(91,157,255,.25); }
-.fcheck { font-size: 12px; color: var(--sub); display: flex; align-items: center; gap: 7px;
-  cursor: pointer; user-select: none; }
-.fcheck input { accent-color: var(--accent); }
-.adv-toggle { padding: 4px 0; }
-.btn-check { margin-top: 2px; padding: 8px 12px; border-radius: 10px; border: 1px dashed var(--border-hi);
-  background: rgba(91,157,255,.06); color: var(--accent); cursor: pointer; font-size: 12.5px;
+/* 消息流 */
+#chat { flex: 1; overflow-y: auto; padding: 26px 0 10px; scroll-behavior: smooth; }
+.chat-inner { max-width: 820px; margin: 0 auto; padding: 0 20px; display: flex; flex-direction: column; gap: 18px; }
+.msg { display: flex; gap: 10px; animation: fadein .25s; }
+@keyframes fadein { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; } }
+.msg .avatar { width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0; font-size: 15px;
+  display: flex; align-items: center; justify-content: center; }
+.msg.user .avatar { background: linear-gradient(120deg, #1a2540, #2a1a3a); }
+.msg.agent .avatar { background: linear-gradient(120deg, #0e2a1e, #122a3a); }
+.msg .bubble { max-width: 82%; font-size: 13.5px; line-height: 1.65; }
+.msg.user { flex-direction: row-reverse; }
+.msg.user .bubble { background: linear-gradient(120deg, #1d2a44, #241a3a); padding: 10px 16px;
+  border-radius: 14px 4px 14px 14px; }
+.msg.agent .bubble { color: var(--txt); }
+.msg.agent .bubble .meta { font-size: 11px; color: var(--faint); margin-bottom: 4px; }
+/* agent 块状内容 */
+.ablock { background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+  padding: 14px 16px; margin-top: 6px; }
+.ablock .atitle { font-size: 13px; font-weight: 600; margin-bottom: 8px; display: flex;
+  align-items: center; gap: 8px; }
+.badge { font-size: 10px; padding: 2px 9px; border-radius: 12px; font-weight: 600; }
+.badge.running { background: rgba(255,180,84,.1); color: var(--warn); }
+.badge.suspended { background: rgba(180,140,255,.12); color: var(--susp); animation: breath 2s infinite; }
+.badge.success { background: rgba(61,220,132,.1); color: var(--ok); }
+.badge.error { background: rgba(255,107,107,.1); color: var(--err); }
+@keyframes breath { 0%,100% { box-shadow: 0 0 0 0 rgba(180,140,255,.3); } 50% { box-shadow: 0 0 0 5px rgba(180,140,255,0); } }
+/* 日志块 */
+.logbox { font-family: ui-monospace, "SF Mono", monospace; font-size: 11.5px; color: #9fb0c8;
+  line-height: 1.7; max-height: 220px; overflow-y: auto; margin-top: 8px;
+  background: rgba(6,9,14,.6); border-radius: 10px; padding: 10px 12px; }
+.logbox .ln { white-space: pre-wrap; word-break: break-all; border-bottom: 1px dashed rgba(120,140,180,.06); padding: 1px 0; }
+.logbox .ln:last-child { border-bottom: none; }
+/* 卡点 */
+.cardbox { border: 1px solid rgba(180,140,255,.45); border-radius: 14px;
+  background: linear-gradient(135deg, rgba(180,140,255,.08), rgba(20,16,34,.8));
+  padding: 16px; margin-top: 8px; }
+.cardbox .ctitle { font-size: 13.5px; font-weight: 700; color: #d9c6ff; display: flex;
+  gap: 8px; align-items: center; margin-bottom: 8px; }
+.cardbox .cpulse { width: 8px; height: 8px; border-radius: 50%; background: var(--susp); animation: breath 1.4s infinite; }
+.cardbox .cdetail { font-size: 12.5px; color: var(--sub); line-height: 1.65; margin-bottom: 10px; white-space: pre-wrap; }
+.cardbox .opts { display: flex; flex-wrap: wrap; gap: 7px; }
+.optbtn { font-size: 12px; padding: 7px 13px; border-radius: 9px; border: 1px solid var(--border);
+  background: rgba(10,14,22,.7); color: var(--txt); cursor: pointer; transition: all .15s; }
+.optbtn:hover { border-color: var(--susp); background: rgba(180,140,255,.12); }
+.cardbox .chathint { font-size: 11.5px; color: var(--faint); margin-top: 10px; }
+/* 报告 */
+.reportcard { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.reportcard a { font-size: 12.5px; padding: 9px 16px; border-radius: 10px; text-decoration: none;
+  border: 1px solid rgba(91,157,255,.4); color: var(--accent); background: rgba(91,157,255,.07); transition: all .15s; }
+.reportcard a:hover { background: rgba(91,157,255,.15); }
+/* 输入区 */
+.inputwrap { border-top: 1px solid var(--border); background: var(--panel); padding: 14px 20px 16px; }
+.inputinner { max-width: 820px; margin: 0 auto; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.chip { font-size: 11.5px; padding: 5px 12px; border-radius: 16px; border: 1px solid var(--border);
+  background: transparent; color: var(--sub); cursor: pointer; transition: all .15s; }
+.chip:hover { color: var(--accent); border-color: var(--accent); }
+.inputrow { display: flex; gap: 10px; align-items: flex-end; }
+.inputrow textarea { flex: 1; resize: none; background: rgba(6,9,14,.7); border: 1px solid var(--border);
+  color: var(--txt); border-radius: 14px; padding: 12px 15px; font-size: 13.5px; line-height: 1.5;
+  max-height: 140px; font-family: inherit; transition: border-color .2s; }
+.inputrow textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(91,157,255,.1); }
+.inputrow .send { padding: 11px 20px; border-radius: 13px; border: none; cursor: pointer; font-size: 13.5px;
+  font-weight: 700; color: #fff; background: linear-gradient(120deg, var(--accent), #8b6cff);
   transition: all .15s; }
-.btn-check:hover { border-style: solid; background: rgba(91,157,255,.12); }
-#f-check-result a { color: var(--accent); text-decoration: none; }
-#f-check-result a:hover { text-decoration: underline; }
-
-/* ===== 任务列表 ===== */
-.task-card { border: 1px solid var(--border); border-left: 3px solid var(--faint);
-  border-radius: 14px; padding: 13px 15px; margin-bottom: 10px; cursor: pointer;
-  transition: all .18s; background: rgba(10, 14, 22, .5); position: relative; overflow: hidden; }
-.task-card:hover { transform: translateY(-2px); border-color: var(--border-hi);
-  box-shadow: 0 6px 18px rgba(0,0,0,.3); }
-.task-card.active { border-color: var(--accent); background: rgba(91,157,255,.06); }
-.task-card .row1 { display: flex; align-items: center; gap: 8px; }
-.task-card .type { font-weight: 600; font-size: 14px; }
-.task-card .row2 { font-size: 11.5px; color: var(--faint); margin-top: 7px;
-  display: flex; gap: 10px; align-items: center; }
-.badge { font-size: 10.5px; padding: 3px 10px; border-radius: 20px; margin-left: auto;
-  font-weight: 600; letter-spacing: .5px; }
-.badge.suspended { background: rgba(180,140,255,.12); color: var(--susp); border: 1px solid rgba(180,140,255,.4);
-  animation: breath 2s ease-in-out infinite; }
-.badge.success { background: rgba(61,220,132,.1); color: var(--ok); border: 1px solid rgba(61,220,132,.35); }
-.badge.error, .badge.failed { background: rgba(255,107,107,.1); color: var(--err); border: 1px solid rgba(255,107,107,.35); }
-.badge.pending, .badge.starting, .badge.running { background: rgba(255,180,84,.1); color: var(--warn); border: 1px solid rgba(255,180,84,.35); }
-@keyframes breath { 0%,100% { box-shadow: 0 0 0 0 rgba(180,140,255,.35); }
-  50% { box-shadow: 0 0 0 5px rgba(180,140,255,0); } }
-/* 进度条（任务卡底部） */
-.task-card .bar { position: absolute; bottom: 0; left: 0; height: 2.5px;
-  background: linear-gradient(90deg, var(--accent), var(--accent2));
-  transition: width .5s; border-radius: 0 4px 4px 0; }
-.empty { color: var(--faint); font-size: 13px; text-align: center; padding: 36px 10px; line-height: 1.8; }
-.empty .big { font-size: 26px; display: block; margin-bottom: 8px; opacity: .6; }
-
-/* ===== 详情 ===== */
-#detail-title { display: flex; align-items: center; gap: 10px; }
-#detail-title .tid { font-family: ui-monospace, monospace; font-size: 12px;
-  color: var(--faint); background: rgba(10,14,22,.7); padding: 4px 10px; border-radius: 8px; }
-.steps { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
-.step { display: flex; align-items: center; gap: 11px; padding: 10px 14px;
-  border-radius: 11px; background: rgba(10,14,22,.55); border: 1px solid var(--border);
-  font-size: 13px; transition: all .2s; }
-.step .sdot { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); flex-shrink: 0; }
-.step.success { border-color: rgba(61,220,132,.25); }
-.step.success .sdot { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
-.step.suspended { border-color: rgba(180,140,255,.4); background: rgba(180,140,255,.05); }
-.step.suspended .sdot { background: var(--susp); box-shadow: 0 0 10px var(--susp);
-  animation: breath 1.6s ease-in-out infinite; }
-.step.error { border-color: rgba(255,107,107,.3); }
-.step.error .sdot { background: var(--err); }
-.step .sname { font-weight: 600; }
-.step .sstatus { margin-left: auto; font-size: 11px; color: var(--faint); }
-
-.plog { margin-top: 14px; border: 1px solid var(--border); border-radius: 14px;
-  padding: 14px; background: rgba(10,14,22,.65); }
-.plog h3 { font-size: 12px; color: var(--sub); margin-bottom: 10px;
-  display: flex; gap: 8px; align-items: center; }
-.pline { font-family: ui-monospace, "SF Mono", monospace; font-size: 11.5px; color: #9fb0c8;
-  line-height: 1.75; padding: 2px 0; border-bottom: 1px dashed rgba(120,140,180,.07);
-  white-space: pre-wrap; word-break: break-all; }
-.pline:last-child { border-bottom: none; }
-.pline.fresh { color: var(--txt); animation: fadein .4s; }
-@keyframes fadein { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; } }
-
-/* ===== 卡点弹窗 ===== */
-.cardbox { margin-top: 16px; border: 1px solid rgba(180,140,255,.45); border-radius: 16px;
-  background: linear-gradient(135deg, rgba(180,140,255,.1), rgba(26,20,40,.8));
-  padding: 20px; animation: fadein .3s; position: relative; overflow: hidden; }
-.cardbox::before { content: ""; position: absolute; inset: 0;
-  background: radial-gradient(600px 120px at 20% 0%, rgba(180,140,255,.15), transparent); }
-.cardbox .ctitle { font-size: 15.5px; font-weight: 700; color: #d9c6ff; margin-bottom: 10px;
-  display: flex; align-items: center; gap: 8px; position: relative; }
-.cardbox .cpulse { width: 8px; height: 8px; border-radius: 50%; background: var(--susp);
-  animation: breath 1.4s ease-in-out infinite; }
-.cardbox .cdetail { font-size: 13px; color: var(--sub); line-height: 1.7; margin-bottom: 16px;
-  white-space: pre-wrap; position: relative; }
-.cardbox .opts { display: flex; flex-direction: column; gap: 8px; position: relative; }
-.optbtn { padding: 11px 15px; border-radius: 10px; border: 1px solid var(--border);
-  background: rgba(10,14,22,.7); color: var(--txt); cursor: pointer; text-align: left;
-  font-size: 13px; transition: all .15s; }
-.optbtn:hover { border-color: var(--susp); background: rgba(180,140,255,.1); transform: translateX(2px); }
-.optbtn.primary { border-color: var(--susp); color: #d9c6ff; font-weight: 600; }
-.chatline { display: flex; gap: 8px; margin-top: 6px; }
-.chatline input { flex: 1; padding: 11px 13px; border-radius: 10px;
-  border: 1px solid var(--border); background: rgba(10,14,22,.7); color: var(--txt);
-  font-size: 13px; transition: border-color .2s; }
-.chatline input:focus { outline: none; border-color: var(--susp);
-  box-shadow: 0 0 0 3px rgba(180,140,255,.12); }
-.chatline input::placeholder { color: var(--faint); }
-#chat-status code { background: rgba(10,14,22,.8); padding: 2px 7px;
-  border-radius: 6px; font-size: 11px; color: var(--ok); }
-
-/* ===== 报告 ===== */
-.report-wrap { margin-top: 18px; }
-.report-frame { width: 100%; height: 76vh; border: 1px solid var(--border);
-  border-radius: 16px; background: #fff; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
-
-/* ===== Toast ===== */
-#toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
-  background: rgba(20,26,38,.95); border: 1px solid var(--border-hi); color: var(--txt);
-  padding: 12px 22px; border-radius: 12px; font-size: 13px; opacity: 0;
-  transition: all .25s; pointer-events: none; z-index: 99; backdrop-filter: blur(8px); }
-#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-#toast.ok { border-color: rgba(61,220,132,.5); }
-#toast.err { border-color: rgba(255,107,107,.5); }
-
-@media (max-width: 900px) {
-  .grid { grid-template-columns: 1fr; padding: 14px; }
-  .hero { padding: 14px 16px; }
-  .hero .stats { margin-left: 0; width: 100%; }
-}
+.inputrow .send:hover { filter: brightness(1.12); }
+.inputrow .send:disabled { opacity: .4; cursor: not-allowed; }
+.typing { display: flex; gap: 4px; padding: 6px 0; }
+.typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--sub); animation: tp 1.2s infinite; }
+.typing span:nth-child(2) { animation-delay: .2s; }
+.typing span:nth-child(3) { animation-delay: .4s; }
+@keyframes tp { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
+.welcome { text-align: center; color: var(--sub); padding: 60px 0 30px; }
+.welcome .big { font-size: 34px; margin-bottom: 12px; }
+.welcome h2 { font-size: 17px; color: var(--txt); margin-bottom: 8px; }
+.welcome p { font-size: 12.5px; line-height: 1.8; }
 </style>
 </head>
 <body>
 
-<div class="hero">
+<div class="topbar">
   <div class="logo">🛠️</div>
-  <div class="title-wrap">
-    <h1>选品 Agent 工作台</h1>
-    <div class="slogan">五智能体集群 · HITL 人在环 · 真值锚定校准</div>
+  <div>
+    <h1>选品 Agent</h1>
+    <div class="sub">对话式 · 五智能体集群 · 人在环拍板</div>
   </div>
-  <div class="stats">
-    <div class="stat online"><span>🟢</span><div>服务<b id="st-online">-</b></div></div>
-    <div class="stat suspended"><span>⏸</span><div>待拍板<b id="st-susp">0</b></div></div>
-    <div class="stat"><span>⚙️</span><div>运行中<b id="st-run">0</b></div></div>
-    <div class="stat done"><span>✅</span><div>已完成<b id="st-done">0</b></div></div>
+  <div class="right">
+    <span class="dot" id="hdot"></span><span class="htext" id="htext">检查中…</span>
+    <button class="newchat" onclick="newChat()">＋ 新会话</button>
   </div>
 </div>
 
-<div class="grid">
-  <div class="panel">
-    <h2><span class="icon">🚀</span>新建任务</h2>
-    <form class="newtask" id="newtask">
-      <select id="f-type">
-        <option value="refresh">全流程 · 打标 + 洞察 + 双报告</option>
-        <option value="monitorKeywords">监控巡检 · Sif 关键词趋势</option>
-        <option value="collect">取数 · 三源采集</option>
-        <option value="insight">洞察 · 报告生成</option>
-        <option value="tag">打标 · 增量打标</option>
-      </select>
-
-      <div id="f-category-wrap">
-        <label class="flabel">类目 <span class="freq">任意输入</span></label>
-        <input id="f-category" list="cat-list" placeholder="输入类目名（如 round_files 或 Square Nose End Mills）" autocomplete="off">
-        <datalist id="cat-list"></datalist>
-        <div id="f-anchor-hint" class="fhint"></div>
-        <button type="button" class="btn-check" id="btn-check-cat">🔍 检查该类目数据</button>
-        <div id="f-check-result" class="fhint" style="display:none"></div>
-        <div id="f-custom-cat" style="display:none">
-          <label class="flabel">打标标准 label.xlsx 路径 <span class="freq">必填</span></label>
-          <input id="f-cat-labelxlsx" placeholder="/Users/haiyi/Desktop/Round Files/xxx_label.xlsx">
-          <label class="flabel">已有打标成品 tag_full.json <span class="fopt">可选（留空=从零打标）</span></label>
-          <input id="f-cat-tagjson" placeholder="/path/to/tag_full.json（留空则从零打标）">
-        </div>
-      </div>
-
-      <div id="f-keywords-wrap" style="display:none">
-        <label class="flabel">关键词 <span class="freq">一行一个</span></label>
-        <textarea id="f-keywords" rows="3" placeholder="carbide burr&#10;die grinder bits"></textarea>
-        <label class="fcheck"><input type="checkbox" id="f-funnel" checked> 带漏斗 + CPC 数据（零积分）</label>
-      </div>
-
-      <div id="f-collect-wrap" style="display:none">
-        <label class="flabel">数据源</label>
-        <select id="f-source">
-          <option value="sellersprite">卖家精灵（类目月采）</option>
-          <option value="keepa">Keepa（ASIN 补源）</option>
-          <option value="sif">Sif（关键词趋势）</option>
-        </select>
-        <label class="flabel">取数目标</label>
-        <input id="f-collect-category" placeholder="类目名（如 square_nose）">
-        <label class="flabel" style="margin-top:4px">或 ASIN 列表 <span class="fopt">Keepa 源用，一行一个</span></label>
-        <textarea id="f-collect-target" rows="3" placeholder="B0XXXXXXX&#10;B0YYYYYYY"></textarea>
-      </div>
-
-      <div id="f-report-wrap" style="display:none">
-        <label class="flabel">报告类型 <span class="fopt">可留空（留空运行时问你）</span></label>
-        <select id="f-report-type">
-          <option value="">运行时再拍板（每次必问）</option>
-          <option value="singularity">仅奇点分析</option>
-          <option value="mi">仅市场洞察</option>
-          <option value="both">双报告融合</option>
-        </select>
-      </div>
-
-      <button class="btn-go" type="submit">启动任务</button>
-    </form>
-    <h2 style="margin-top:22px"><span class="icon">📋</span>任务列表</h2>
-    <div id="tasks"><div class="empty"><span class="big">📭</span>暂无任务<br>点击上方类目预设，开始第一次分析</div></div>
+<div id="chat"><div class="chat-inner" id="chat-inner">
+  <div class="welcome">
+    <div class="big">🛠️</div>
+    <h2>直接说你要做什么，我来调用对应的 Agent</h2>
+    <p>「分析 square_nose 类目」—— 全流程（打标+洞察+双报告）<br>
+    「监控 carbide burr、die grinder bits」—— 关键词趋势巡检<br>
+    「取数 Creatine」—— 卖家精灵月采（自动反查类目）<br>
+    「打标 cutting_burrs」—— 增量打标</p>
   </div>
+</div></div>
 
-  <div class="panel" id="detail">
-    <h2 id="detail-title">任务详情</h2>
-    <div class="empty"><span class="big">👈</span>选择左侧任务查看详情<br>任务运行时这里会实时显示步骤进度与拍板卡片</div>
-    <div id="steps-box"></div>
-    <div id="card-box"></div>
-    <div id="report-box"></div>
+<div class="inputwrap"><div class="inputinner">
+  <div class="chips">
+    <button class="chip" onclick="setInput('分析 square_nose 类目')">🔍 分析 SN 类目</button>
+    <button class="chip" onclick="setInput('监控 carbide burr')">📡 监控关键词</button>
+    <button class="chip" onclick="setInput('取数 Hole Saws')">📥 取数</button>
   </div>
-</div>
-
-<div id="toast"></div>
+  <div class="inputrow">
+    <textarea id="input" rows="1" placeholder="直接说人话：分析类目 / 监控关键词 / 取数 / 打标…（Enter 发送，Shift+Enter 换行）"></textarea>
+    <button class="send" id="send" onclick="send()">发送</button>
+  </div>
+</div></div>
 
 <script>
 const API = "";
-let curTask = null;
-let CATS = []; // 类目注册表缓存（/api/presets）
+let CATS = [];
+let activeTask = null; // { id, type, msgId, logIds }
+let pollTimer = null;
 
-const TYPE_NAMES = { refresh: "全流程", monitorKeywords: "监控巡检", collect: "取数",
-  insight: "洞察", tag: "打标" };
-const TYPE_ICONS = { refresh: "🔄", monitorKeywords: "📡", collect: "📥", insight: "📊", tag: "🏷️" };
-
-function toast(msg, kind) {
-  const t = document.getElementById("toast");
-  t.textContent = msg;
-  t.className = "show" + (kind ? " " + kind : "");
-  clearTimeout(t._h);
-  t._h = setTimeout(() => { t.className = ""; }, 3200);
-}
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g,
+  c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c])); }
 async function api(path, opts) {
   const r = await fetch(API + path, opts);
   return r.json();
 }
-function esc(s) { return String(s ?? "").replace(/[&<>"]/g,
-  c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c])); }
-function fmtElapsed(sec) {
-  if (sec == null) return "";
-  if (sec < 60) return `${sec}秒`;
-  const m = Math.floor(sec / 60), s = sec % 60;
-  return m < 60 ? `${m}分${s}秒` : `${Math.floor(m/60)}时${m%60}分`;
+const chatEl = () => document.getElementById("chat-inner");
+
+function addMsg(role, html, meta) {
+  const d = document.createElement("div");
+  d.className = "msg " + role;
+  d.innerHTML = `<div class="avatar">${role === "user" ? "🧑" : "🤖"}</div>
+    <div class="bubble">${meta ? `<div class="meta">${meta}</div>` : ""}${html}</div>`;
+  chatEl().appendChild(d);
+  document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
+  return d;
 }
+function addUserMsg(text) { addMsg("user", `<div style="white-space:pre-wrap">${esc(text)}</div>`); }
+function typing() {
+  const d = document.createElement("div");
+  d.className = "msg agent";
+  d.innerHTML = `<div class="avatar">🤖</div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  chatEl().appendChild(d);
+  document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
+  return d;
+}
+function addLogBox(msgId, title, badge) {
+  const d = addMsg("agent", `
+    <div class="ablock">
+      <div class="atitle">${esc(title)} <span class="badge ${badge}">${badge === "running" ? "运行中" : badge === "suspended" ? "待拍板" : badge === "success" ? "已完成" : badge}</span></div>
+      <div class="logbox" id="log-${msgId}"></div>
+    </div>`, "Agent 执行流");
+  return d;
+}
+function appendLog(msgId, line) {
+  const box = document.getElementById("log-" + msgId);
+  if (!box) return;
+  const ln = document.createElement("div");
+  ln.className = "ln";
+  ln.textContent = line;
+  box.appendChild(ln);
+  box.scrollTop = box.scrollHeight;
+  while (box.children.length > 40) box.removeChild(box.firstChild);
+}
+
 const STATUS_ZH = { suspended: "待拍板", success: "已完成", running: "运行中",
   pending: "排队中", starting: "启动中", failed: "失败", error: "出错" };
+const TYPE_NAMES = { refresh: "全流程分析", monitorKeywords: "监控巡检", collect: "取数",
+  insight: "洞察报告", tag: "打标" };
 
-async function refreshTasks() {
-  let tasks;
-  try { tasks = await api("/api/tasks"); } catch { tasks = []; }
-  const box = document.getElementById("tasks");
-  const stats = { susp: 0, run: 0, done: 0 };
-  for (const t of tasks) {
-    if (t.status === "suspended") stats.susp++;
-    else if (["starting", "pending", "running"].includes(t.status)) stats.run++;
-    else if (t.status === "success") stats.done++;
-  }
-  document.getElementById("st-susp").textContent = stats.susp;
-  document.getElementById("st-run").textContent = stats.run;
-  document.getElementById("st-done").textContent = stats.done;
-  if (!tasks.length) {
-    box.innerHTML = '<div class="empty"><span class="big">📭</span>暂无任务<br>点击上方类目预设，开始第一次分析</div>';
-    return;
-  }
-  box.innerHTML = tasks.map(t => `
-    <div class="task-card ${t.id === curTask ? "active" : ""}" onclick="selectTask('${t.id}')">
-      <div class="row1"><span class="type">${TYPE_ICONS[t.type] ?? "•"} ${TYPE_NAMES[t.type] ?? t.type}</span>
-        <span class="badge ${["suspended","success","failed","error"].includes(t.status) ? t.status : "pending"}">${STATUS_ZH[t.status] ?? t.status}</span></div>
-      <div class="row2"><span>${t.id}</span><span>${t.params?.category ?? ""}</span>
-        <span style="margin-left:auto">${new Date(t.createdAt).toLocaleTimeString()}</span></div>
-      <div class="bar" style="width:${t.status === "success" ? "100%" : t.status === "suspended" ? "72%" : "30%"}"></div>
-    </div>`).join("");
-  if (curTask) await selectTask(curTask, true);
+async function newChat() {
+  activeTask = null;
+  chatEl().innerHTML = `<div class="welcome"><div class="big">🛠️</div>
+    <h2>新会话开始</h2><p>直接说你要做什么</p></div>`;
 }
 
-async function selectTask(id, silent) {
-  curTask = id;
-  const d = await api(`/api/tasks/${id}`);
-  document.getElementById("detail-title").innerHTML =
-    `任务详情 <span class="tid">${esc(id)}</span>`;
-  document.getElementById("card-box").innerHTML = "";
-  document.getElementById("report-box").innerHTML = "";
-  const steps = d.steps ?? {};
-  const stepNames = Object.keys(steps);
-  const stepsHtml = stepNames.length ? `
-    <div class="steps">${stepNames.map(k => {
-      const st = steps[k].status ?? "pending";
-      return `<div class="step ${st}"><span class="sdot"></span>
-        <span class="sname">${esc(k)}</span><span class="sstatus">${esc(STATUS_ZH[st] ?? st)}</span></div>`;
-    }).join("")}</div>` : '<div class="empty"><span class="big">⏳</span>步骤执行中…</div>';
-  const progressHtml = (d.progress ?? []).length ? `
-    <div class="plog"><h3>📋 实时进度 <span style="color:var(--faint)">· 耗时 ${fmtElapsed(d.elapsed)}</span></h3>
-    ${d.progress.map(p => `<div class="pline">${esc(p)}</div>`).join("")}</div>`
-    : `<div class="plog"><h3>📋 实时进度 <span style="color:var(--faint)">· 耗时 ${fmtElapsed(d.elapsed)}</span></h3>
-    <div class="empty" style="padding:14px">等待输出…</div></div>`;
-  document.getElementById("steps-box").innerHTML = stepsHtml + progressHtml;
-  const sp = d.suspendPayload;
-  if (d.suspendedStep && sp) {
-    const opts = sp.options ?? [];
-    document.getElementById("card-box").innerHTML = `
-      <div class="cardbox">
-        <div class="ctitle"><span class="cpulse"></span>需要你拍板 · ${esc(sp.title ?? "")}</div>
-        <div class="cdetail">${esc(sp.detail ?? "")}</div>
-        <div class="opts">${opts.map(o => `
-          <button class="optbtn" onclick="decide('${id}', '${esc(o.split("（")[0].trim())}')">${esc(o)}</button>`).join("")}
-          <div class="chatline">
-            <input id="chat-input" placeholder='💬 直接说人话：如「锚点 LU&MN 营收 144883.52」「不修数」「两个报告都要」'
-              onkeydown="if(event.key==='Enter'){chatDecide('${id}');}">
-            <button class="optbtn" style="white-space:nowrap" onclick="chatDecide('${id}')">发送 →</button>
-          </div>
-          <div id="chat-status" class="fhint" style="display:none"></div>
-        </div>
-      </div>`;
-    document.getElementById("card-box").scrollIntoView({ behavior: "smooth", block: "center" });
-  }
-  if (d.status === "success") {
-    document.getElementById("report-box").innerHTML = `
-      <div class="report-wrap"><h2 style="margin-bottom:12px"><span class="icon">📊</span>报告</h2>
-       <iframe class="report-frame" src="/api/tasks/${id}/report"></iframe></div>`;
-  }
-  if (!silent) refreshTasks();
+function setInput(t) { document.getElementById("input").value = t; document.getElementById("input").focus(); }
+
+/** 类目名 → 匹配注册表（键或展示名） */
+function matchCat(v) {
+  if (!v) return null;
+  const lower = v.toLowerCase();
+  return CATS.find(c => c.key.toLowerCase() === lower || c.label.toLowerCase() === lower)
+    ?? CATS.find(c => v.includes(c.key) || v.toLowerCase().includes(c.label.toLowerCase()))
+    ?? null;
 }
 
-async function decide(id, choice) {
+/** 组装全流程参数（注册表类目自动推导；新类目需 label 路径） */
+function buildCategoryParams(v) {
+  const c = matchCat(v);
+  if (c) {
+    const slug = c.key.replace(/_/g, "-");
+    return {
+      category: c.key, categoryLabel: c.label, labelXlsx: c.labelXlsx, tagJson: c.tagJson,
+      pipelineOut: `/tmp/psa_${slug}/out`, workDir: `/tmp/psa_${slug}`, threadId: `chat-${slug}-${Date.now()}`,
+    };
+  }
+  const slug = v.replace(/[^a-z0-9-]/gi, "-").toLowerCase();
+  return {
+    category: slug, categoryLabel: v, labelXlsx: "", tagJson: "",
+    pipelineOut: `/tmp/psa_${slug}/out`, workDir: `/tmp/psa_${slug}`, threadId: `chat-${slug}-${Date.now()}`,
+  };
+}
+
+/** 从意图文本提取类目名（去掉动作词） */
+function extractCategory(text) {
+  return text.replace(/分析|全流程|跑一下|跑一遍|研究|取数|采集|打标|标注|洞察|报告|奇点|市场洞察|一下|这个|该|类目|的|数据|帮我|请/g, "").trim();
+}
+
+async function send() {
+  const input = document.getElementById("input");
+  const text = input.value.trim();
+  if (!text) return;
+  addUserMsg(text);
+  input.value = "";
+  input.style.height = "auto";
+  document.getElementById("send").disabled = true;
+
+  const t = typing();
+  try {
+    // 1. 意图路由
+    const intent = await api("/api/chat-intent", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }),
+    });
+    if (!intent.ok) {
+      t.remove();
+      addMsg("agent", `<div class="ablock">${esc(intent.reply ?? "没理解")}</div>`);
+      return;
+    }
+    // 2. 组装参数 + 创建任务
+    let type = intent.type, params;
+    if (type === "refresh" || type === "insight" || type === "tag") {
+      const catText = extractCategory(text);
+      params = buildCategoryParams(catText || intent.params?.category || "");
+      if (!params.category) { t.remove(); addMsg("agent", `<div class="ablock">请告诉我类目名（如「分析 square_nose」）</div>`); return; }
+      if (!params.labelXlsx) {
+        t.remove();
+        addMsg("agent", `<div class="ablock">新类目「${esc(params.categoryLabel)}」需要打标标准 label.xlsx 路径，请直接发我文件路径：<br>例如 <code>label: /Users/haiyi/Desktop/Round Files/xxx_label.xlsx</code></div>`);
+        return;
+      }
+    } else if (type === "monitorKeywords") {
+      params = {
+        source: "sif", keywords: intent.params?.keywords ?? [], live: true, withFunnel: true,
+        workDir: "/tmp/psa_chat_mon", threadId: "chat-mon-" + Date.now(),
+      };
+    } else if (type === "collect") {
+      const catText = extractCategory(text);
+      const taskJson = { mode: "category_monthly", category: catText, months: "last24", min_units: 50 };
+      params = { source: "sellersprite", taskJson: JSON.stringify(taskJson), live: false,
+        workDir: `/tmp/psa_chat_col_${catText.replace(/[^a-z0-9]/gi, "").slice(0, 12).toLowerCase()}`, threadId: "chat-col-" + Date.now() };
+    }
+    // 3. 创建任务
+    const r = await api("/api/tasks", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, params }),
+    });
+    if (r.error) {
+      t.remove();
+      addMsg("agent", `<div class="ablock">⚠️ ${esc(r.error)}</div>`);
+      return;
+    }
+    t.remove();
+    const msgId = "t" + Date.now();
+    addMsg("agent", `<div class="ablock" id="meta-${msgId}">
+      <div class="atitle">🔀 已路由到「${esc(TYPE_NAMES[type] ?? type)}」 <span class="badge running">运行中</span></div>
+      <div class="logbox" id="log-${msgId}"></div></div>`, "任务 " + r.id);
+    activeTask = { id: r.id, type, msgId };
+    appendLog(msgId, `任务已创建: ${r.id}（${TYPE_NAMES[type]}）`);
+    poll();
+  } catch (e) {
+    t.remove();
+    addMsg("agent", `<div class="ablock">⚠️ 出错了: ${esc(String(e))}</div>`);
+  } finally {
+    document.getElementById("send").disabled = false;
+  }
+}
+
+/** 轮询任务状态 → 更新执行流消息 */
+async function poll() {
+  if (pollTimer) clearInterval(pollTimer);
+  let lastProgress = [];
+  let lastStatus = "";
+  pollTimer = setInterval(async () => {
+    if (!activeTask) return;
+    const d = await api(`/api/tasks/${activeTask.id}`);
+    const msgId = activeTask.msgId;
+    const prog = d.progress ?? [];
+    for (const line of prog) {
+      if (!lastProgress.includes(line)) {
+        lastProgress.push(line);
+        appendLog(msgId, line);
+      }
+    }
+    const meta = document.getElementById("meta-" + msgId);
+    // 状态徽标更新
+    if (meta) {
+      const badge = meta.querySelector(".badge");
+      if (badge) {
+        badge.className = "badge " + (d.status === "suspended" ? "suspended" : ["success"].includes(d.status) ? "success" : d.status === "failed" || String(d.status).startsWith("error") ? "error" : "running");
+        badge.textContent = STATUS_ZH[d.status] ?? d.status;
+      }
+    }
+    // 卡点 → 渲染拍板卡（若还没渲染过）
+    if (d.status === "suspended" && d.suspendPayload && lastStatus !== "suspended") {
+      renderCard(msgId, d);
+    }
+    lastStatus = d.status;
+    // 完成 → 报告
+    if (d.status === "success" && d.suspendStep !== undefined) {
+      // 结束
+    }
+  }, 2500);
+}
+
+function renderCard(msgId, d) {
+  const sp = d.suspendPayload ?? {};
+  const box = document.getElementById("log-" + msgId);
+  const card = document.createElement("div");
+  card.className = "cardbox";
+  card.id = "card-" + msgId;
+  const opts = sp.options ?? [];
+  card.innerHTML = `
+    <div class="ctitle"><span class="cpulse"></span>需要你拍板 · ${esc(sp.title ?? "")}</div>
+    <div class="cdetail">${esc(sp.detail ?? "")}</div>
+    <div class="opts">${opts.map(o => `<button class="optbtn" onclick="decide('${msgId}','${esc(o.split("（")[0].trim())}')">${esc(o)}</button>`).join("")}</div>
+    <div class="chathint">💬 或直接在下方输入框回复（如「两个都要」「不修数」「锚点 LU&MN 营收 144883.52」）</div>`;
+  box.parentElement.after(card);
+  card.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+async function decide(msgId, choice) {
   const mapping = { "continue": "continue", "cancel": "cancel", "skip": "skip",
     "singularity": "singularity", "mi": "mi", "both": "both", "不修数": { mode: "none" } };
   const decision = mapping[choice] ?? choice;
-  const r = await api(`/api/tasks/${id}/resume`, {
+  await resumeWith(decision, msgId);
+}
+
+async function resumeWith(decision, msgId) {
+  if (!activeTask) return;
+  const r = await api(`/api/tasks/${activeTask.id}/resume`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ decision }),
   });
-  if (r.error) { toast("拍板失败：" + r.error, "err"); return; }
-  toast("已拍板：'" + JSON.stringify(decision) + "' ✓", "ok");
-  await selectTask(id);
-}
-async function decideCustom(id) {
-  const raw = prompt("输入 JSON 拍板（如 {\"mode\":\"anchor\",\"anchor_brand\":\"LU&MN\",\"anchor_revenue\":144883.52}）:");
-  if (raw == null) return;
-  try {
-    const decision = JSON.parse(raw);
-    const r = await api(`/api/tasks/${id}/resume`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ decision }),
-    });
-    if (r.error) { toast("拍板失败：" + r.error, "err"); return; }
-    toast("已拍板 JSON ✓", "ok");
-    await selectTask(id);
-  } catch { toast("JSON 解析失败", "err"); }
+  if (r.error) { appendLog(msgId, "⚠️ 拍板失败: " + r.error); return; }
+  appendLog(msgId, `✅ 已拍板: ${JSON.stringify(decision)}`);
+  const card = document.getElementById("card-" + msgId);
+  if (card) card.remove();
 }
 
-/** 对话式拍板: 人话输入 → 后端解析 → JSON decision → resume */
-async function chatDecide(id) {
-  const input = document.getElementById("chat-input");
-  const text = input.value.trim();
-  if (!text) return;
-  const status = document.getElementById("chat-status");
-  const d = await api(`/api/tasks/${id}`);
-  const title = (d.suspendPayload ?? {}).title ?? "";
-  status.style.display = "";
-  status.textContent = "解析中…";
-  const parsed = await api("/api/parse-decision", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cardTitle: title, text }),
-  });
-  if (!parsed.ok) {
-    status.innerHTML = `⚠️ 没听懂: ${esc(parsed.reason)}<br>试试直接贴 JSON: {"mode":"anchor","anchor_brand":"LU&MN","anchor_revenue":144883.52}`;
-    return;
-  }
-  const decision = parsed.decision;
-  status.innerHTML = `✅ 已理解 → 拍板 <code>${esc(JSON.stringify(decision))}</code>（${esc(parsed.reason)}），提交中…`;
-  const r = await api(`/api/tasks/${id}/resume`, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ decision }),
-  });
-  if (r.error) { toast("拍板失败：" + r.error, "err"); return; }
-  toast("已拍板 ✓", "ok");
-  await selectTask(id);
-}
-
-function initPreset() {
-  // 类目注册表 → datalist 建议（可任意输入）
-  api("/api/presets").then((d) => {
-    CATS = d.categories ?? [];
-    document.getElementById("cat-list").innerHTML = CATS.map(c =>
-      `<option value="${esc(c.key)}">${esc(c.label)}${c.hasAnchor ? " · 已注册锚点" : ""}</option>`).join("");
-  }).catch(() => {});
-}
-function matchedCat() {
-  const v = document.getElementById("f-category").value.trim();
-  if (!v) return null;
-  return CATS.find(x => x.key === v || x.label === v)
-    ?? CATS.find(x => x.key.toLowerCase() === v.toLowerCase())
-    ?? null;
-}
-function updateAnchorHint() {
-  const v = document.getElementById("f-category").value.trim();
-  const c = matchedCat();
-  const hint = document.getElementById("f-anchor-hint");
-  const custom = document.getElementById("f-custom-cat");
-  if (!v) { hint.textContent = ""; custom.style.display = "none"; return; }
-  if (c) {
-    custom.style.display = "none";
-    hint.innerHTML = c.hasAnchor
-      ? `✅ 已注册类目 · 锚点: ${esc(c.anchorBrand)} 真实 L12 营收 ${esc(String(c.anchorRevenue))}（修数卡预填推荐，仍由你拍板）`
-      : `✅ 已注册类目（无修数锚点——运行到修数卡时对话拍板）`;
-  } else {
-    custom.style.display = "";
-    hint.innerHTML = `✨ 新类目——填下方 label.xlsx（打标标准唯一权威）。可先点「检查该类目数据」看数据库有没有数据。`;
-  }
-}
-document.getElementById("f-category").addEventListener("input", updateAnchorHint);
-
-/** 检查类目数据（RDS 库数据量 → 无数据引导取数） */
-document.getElementById("btn-check-cat").addEventListener("click", async () => {
-  const v = document.getElementById("f-category").value.trim();
-  if (!v) { toast("先输入类目名", "err"); return; }
-  const box = document.getElementById("f-check-result");
-  box.style.display = "";
-  box.textContent = "检查中…";
-  const d = await api("/api/check-category", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: v }),
-  });
-  if (d.error) { box.innerHTML = `⚠️ ${esc(d.error)}`; return; }
-  const rds = d.rds ?? {};
-  if (d.registered) {
-    box.innerHTML = `✅ 已注册类目「${esc(d.registered.category_label ?? d.registered.key)}」` +
-      (rds.asin_count > 0
-        ? `<br>📦 数据库有数据: ${rds.asin_count} 个 ASIN / ${rds.months} 个月（最新 ${rds.latest_month}）→ 可直接跑全流程`
-        : `<br>⚠️ 数据库暂无数据 → 需先取数（选择「取数」任务，卖家精灵类目月采）`);
-  } else if (rds.similar_categories?.length) {
-    box.innerHTML = `⚠️ 库里有相似类目，请确认是否其一:<br>` +
-      rds.similar_categories.map(s => `· <a href="#" onclick="document.getElementById('f-category').value='${esc(s)}';updateAnchorHint();return false;">${esc(s)}</a>`).join("<br>");
-  } else {
-    box.innerHTML = `⚠️ 数据库无该类目数据 → 需先取数:<br>① 把任务类型切到「取数」· 卖家精灵 · 填类目名<br>② 取数完成后回来跑全流程`;
-  }
-});
-document.getElementById("f-category").addEventListener("change", updateAnchorHint);
-
-// 类型切换 → 动态业务字段
-document.getElementById("f-type").addEventListener("change", (e) => {
-  const t = e.target.value;
-  document.getElementById("f-category-wrap").style.display =
-    ["refresh", "insight", "tag"].includes(t) ? "" : "none";
-  document.getElementById("f-keywords-wrap").style.display =
-    t === "monitorKeywords" ? "" : "none";
-  document.getElementById("f-collect-wrap").style.display =
-    t === "collect" ? "" : "none";
-  document.getElementById("f-report-wrap").style.display =
-    ["refresh", "insight"].includes(t) ? "" : "none";
-});
-
-function assembleParams() {
-  const type = document.getElementById("f-type").value;
-  if (type === "refresh" || type === "insight" || type === "tag") {
-    const v = document.getElementById("f-category").value.trim();
-    if (!v) return { error: "请输入类目名" };
-    const c = matchedCat();
-    let base;
-    if (c) {
-      const slug = c.key.replace(/_/g, "-");
-      base = {
-        category: c.key, categoryLabel: c.label,
-        labelXlsx: c.labelXlsx, tagJson: c.tagJson,
-        pipelineOut: `/tmp/psa_${slug}/out`, workDir: `/tmp/psa_${slug}`,
-        threadId: `ui-${slug}-${Date.now()}`,
-      };
-    } else {
-      // 新类目: 类目名即键，label 必填
-      const labelXlsx = document.getElementById("f-cat-labelxlsx").value.trim();
-      const tagJson = document.getElementById("f-cat-tagjson").value.trim();
-      if (!labelXlsx) return { error: "新类目需填 label.xlsx 路径（打标标准唯一权威）" };
-      const slug = v.replace(/[^a-z0-9-]/gi, "-").toLowerCase();
-      base = {
-        category: slug, categoryLabel: v,
-        labelXlsx, tagJson,
-        pipelineOut: `/tmp/psa_${slug}/out`, workDir: `/tmp/psa_${slug}`,
-        threadId: `ui-${slug}-${Date.now()}`,
-      };
+// 输入框：对话式拍板优先（若活跃任务有挂起卡，用户输入走拍板解析）
+const inputEl = document.getElementById("input");
+inputEl.addEventListener("keydown", async (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    const text = inputEl.value.trim();
+    if (!text) return;
+    // 活跃任务挂起中 → 优先当拍板
+    if (activeTask) {
+      const d = await api(`/api/tasks/${activeTask.id}`);
+      if (d.status === "suspended" && d.suspendPayload) {
+        addUserMsg(text);
+        inputEl.value = "";
+        const title = d.suspendPayload.title ?? "";
+        const parsed = await api("/api/parse-decision", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cardTitle: title, text }),
+        });
+        if (!parsed.ok) {
+          addMsg("agent", `<div class="ablock">⚠️ 没听懂: ${esc(parsed.reason)}<br>试试「不修数」/「两个都要」/「锚点 LU&MN 营收 144883.52」</div>`);
+          return;
+        }
+        addMsg("agent", `<div class="ablock">✅ 已理解 → <code style="font-size:11.5px;color:var(--ok)">${esc(JSON.stringify(parsed.decision))}</code>（${esc(parsed.reason)}），提交中…</div>`);
+        await resumeWith(parsed.decision, activeTask.msgId);
+        return;
+      }
     }
-    const rt = document.getElementById("f-report-type").value;
-    if (rt) base.reportType = rt;
-    return base;
+    send();
   }
-  if (type === "monitorKeywords") {
-    const kws = document.getElementById("f-keywords").value.split("\n")
-      .map(s => s.trim()).filter(Boolean);
-    if (!kws.length) return { error: "请至少输入一个关键词（一行一个）" };
-    return {
-      source: "sif", keywords: kws, live: true,
-      withFunnel: document.getElementById("f-funnel").checked,
-      workDir: "/tmp/psa_ui_mon", threadId: "ui-mon-" + Date.now(),
-    };
-  }
-  if (type === "collect") {
-    const src = document.getElementById("f-source").value;
-    const cat = document.getElementById("f-collect-category").value.trim();
-    const asins = document.getElementById("f-collect-target").value.split("\n")
-      .map(s => s.trim()).filter(Boolean);
-    if (!cat && !asins.length) return { error: "请输入取数目标（类目名或 ASIN 列表）" };
-    // 组装取数 task（sellersprite 类目月采 / keepa ASIN 补源）
-    const taskJson = src === "keepa" && asins.length
-      ? { mode: "asins", asins }
-      : { mode: "category", node_id_path: "auto", category: cat };
-    return { source: src, taskJson: JSON.stringify(taskJson), live: true,
-      workDir: "/tmp/psa_ui_col", threadId: "ui-col-" + Date.now() };
-  }
-  return { error: "未知类型" };
-}
-
-document.getElementById("newtask").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const params = assembleParams();
-  if (params.error) { toast(params.error, "err"); return; }
-  const type = document.getElementById("f-type").value;
-  const r = await api("/api/tasks", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type, params }),
-  });
-  if (r.error) { toast(r.error, "err"); return; }
-  curTask = r.id;
-  toast("任务已启动 🚀", "ok");
-  await refreshTasks();
+});
+inputEl.addEventListener("input", () => {
+  inputEl.style.height = "auto";
+  inputEl.style.height = Math.min(inputEl.scrollHeight, 140) + "px";
 });
 
 async function health() {
   try {
     await api("/api/health");
-    document.getElementById("st-online").textContent = "在线";
-    document.getElementById("st-online").style.color = "var(--ok)";
+    document.getElementById("hdot").className = "dot";
+    document.getElementById("htext").textContent = "在线";
   } catch {
-    document.getElementById("st-online").textContent = "离线";
-    document.getElementById("st-online").style.color = "var(--err)";
+    document.getElementById("hdot").className = "dot off";
+    document.getElementById("htext").textContent = "离线";
   }
+  // 类目建议缓存
+  try {
+    const p = await api("/api/presets");
+    CATS = p.categories ?? [];
+  } catch {}
 }
 
-initPreset();
 health();
-refreshTasks();
-setInterval(refreshTasks, 3000);
 </script>
 </body>
 </html>

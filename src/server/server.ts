@@ -30,6 +30,7 @@ import { Mastra } from "@mastra/core";
 import { loadCategoryPresets, buildRefreshParams } from "./presets.js";
 import { parseDecision } from "./decision-parser.js";
 import { VENV_PY } from "../bridge/agent-step.js";
+import { routeIntent } from "./intent-router.js";
 
 const PORT = Number(process.env.PSA_PORT ?? 8123);
 const DATA_DIR = join(process.cwd(), ".psa");
@@ -169,6 +170,15 @@ app.post("/api/parse-decision", async (req, res) => {
   const { cardTitle, text } = req.body ?? {};
   if (!cardTitle || !text) return res.status(400).json({ error: "缺 cardTitle 或 text" });
   const r = await parseDecision(String(cardTitle), String(text));
+  res.json(r);
+});
+
+/** 对话意图路由（Codex 风格工作台: 自然语言 → 任务类型+参数） */
+app.post("/api/chat-intent", async (req, res) => {
+  const { text } = req.body ?? {};
+  if (!text) return res.status(400).json({ error: "缺 text" });
+  const labels = loadCategoryPresets().map((c) => c.label);
+  const r = await routeIntent(String(text), labels);
   res.json(r);
 });
 
