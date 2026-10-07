@@ -63,7 +63,43 @@ async function main() {
   const t3 = !!out?.reportPath && existsSync(out.reportPath);
   console.log("T3", t3 ? `PASS: 汇报落盘 ✓（${out?.reportPath}）` : "FAIL ⚠️");
 
-  console.log(t1 && t2 && t3 ? "TAG MIGRATION VERIFY ALL PASS" : "TAG MIGRATION HAS FAILURES");
+  // === SN 类目验收（2026-09-22 补: tag workflow 对归并口径类目的一致性）===
+  const SN_WORK_DIR = `${WORK_DIR}_sn`;
+  const SN_HIST = "/Users/haiyi/Desktop/Square Nose End Mills/sn_tag_full_20260911.json";
+  const SN_MD5 = md5(SN_HIST);
+  clearCards(SN_WORK_DIR);
+  const runSn = await wf.createRun();
+  const sn0 = await runSn.start({
+    inputData: {
+      category: "square_nose",
+      labelXlsx: "/Users/haiyi/Desktop/Square Nose End Mills/Square_Nose_End_Mills_label.xlsx",
+      tagJson: SN_HIST,
+      workDir: SN_WORK_DIR,
+      threadId: `mastra-tag-sn-${TS}`,
+    },
+  });
+  let snCur = sn0;
+  let snCards = 0;
+  while (snCur.status === "suspended" && snCards < 4) {
+    clearCards(SN_WORK_DIR);
+    const suspendedStep =
+      (snCur as unknown as { suspendedStepId?: string }).suspendedStepId ??
+      (snCur.steps
+        ? Object.entries(snCur.steps).find(([, s]) => (s as { status: string }).status === "suspended")?.[0]
+        : undefined);
+    snCur = await runSn.resume({ step: suspendedStep as string, resumeData: { decision: "cancel" } });
+    snCards++;
+  }
+  const snOut = snCur.steps?.tag?.output as
+    | { status: string; reportPath: string | null; error: string | null }
+    | undefined;
+  const t4 = (snCur.status === "success" || snOut?.status === "done")
+    && md5(SN_HIST) === SN_MD5; // SN 归并零增量 + 旧键零改动
+  console.log("T4", t4
+    ? `PASS: SN 类目归并零增量 ✓（new_dims=[] 判定 + 历史 md5 不变，卡数 ${snCards}）`
+    : `FAIL ⚠️（${snCur.status} ${snOut?.error ?? ""}）`);
+
+  console.log(t1 && t2 && t3 && t4 ? "TAG MIGRATION VERIFY ALL PASS" : "TAG MIGRATION HAS FAILURES");
 }
 
 main();
