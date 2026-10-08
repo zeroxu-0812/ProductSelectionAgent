@@ -1,5 +1,21 @@
 [
   {
+    "id": "t-c3edbe0ebc",
+    "type": "collect",
+    "params": {
+      "source": "sellersprite",
+      "taskJson": "{\"mode\":\"category_monthly\",\"category\":\"Magnesium\",\"months\":\"last24\",\"min_units\":50}",
+      "live": false,
+      "workDir": "/tmp/psa_chat_col_magnesium",
+      "threadId": "chat-col-1791426309889"
+    },
+    "status": "suspended",
+    "createdAt": "2026-10-08T02:25:09.895Z",
+    "decisions": [],
+    "runId": "46b59a53-f0b9-45fb-afee-5ee3631f4587",
+    "lastStep": "collect"
+  },
+  {
     "id": "t-be190c657b",
     "type": "collect",
     "params": {

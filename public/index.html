@@ -76,6 +76,12 @@ body { background: var(--bg); color: var(--txt); font-family: -apple-system, "Pi
   background: rgba(10,14,22,.7); color: var(--txt); cursor: pointer; transition: all .15s; }
 .optbtn:hover { border-color: var(--susp); background: rgba(180,140,255,.12); }
 .cardbox .chathint { font-size: 11.5px; color: var(--faint); margin-top: 10px; }
+.kv { display: flex; gap: 10px; font-size: 12.5px; padding: 4px 0;
+  border-bottom: 1px dashed rgba(120,140,180,.08); }
+.kv:last-child { border-bottom: none; }
+.kv .k { color: #9fb0c8; min-width: 88px; flex-shrink: 0; }
+.kv .v { color: var(--txt); word-break: break-all; }
+.hl { color: var(--warn); font-weight: 600; }
 /* 报告 */
 .reportcard { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 .reportcard a { font-size: 12.5px; padding: 9px 16px; border-radius: 10px; text-decoration: none;
@@ -684,13 +690,65 @@ function renderCard(msgId, d) {
   card.className = "cardbox";
   card.id = "card-" + msgId;
   const opts = sp.options ?? [];
+  // 按钮文案人话化（保留原始决策值）
+  const optLabel = (o) => String(o)
+    .replace(/^拍板 JSON（anchor\/coef\/none）$/, "对话拍板（说人话: 锚点/系数/不修数）")
+    .replace(/^continue（/, "继续（")
+    .replace(/^cancel（/, "取消（")
+    .replace(/^skip（/, "跳过（");
   card.innerHTML = `
     <div class="ctitle"><span class="cpulse"></span>需要你拍板 · ${esc(sp.title ?? "")}</div>
-    <div class="cdetail">${esc(sp.detail ?? "")}</div>
-    <div class="opts">${opts.map(o => `<button class="optbtn" onclick="decide('${msgId}','${esc(o.split("（")[0].trim())}')">${esc(o)}</button>`).join("")}</div>
+    <div class="cdetail">${humanizeDetail(sp.detail ?? "")}</div>
+    <div class="opts">${opts.map(o => `<button class="optbtn" onclick="decide('${msgId}','${esc(o.split("（")[0].trim())}')">${esc(optLabel(o))}</button>`).join("")}</div>
     <div class="chathint">💬 或直接在输入框回复（如「两个都要」「不修数」）</div>`;
   box.parentElement.after(card);
   card.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+/** 拍板卡 detail 人话化: JSON/Python dict → 键值表格（中文说明），纯文本保留 */
+const DICT_KEYS_ZH = {
+  mode: "模式", mode_desc: "模式说明", source: "数据源", months: "月份范围",
+  est_calls: "预估调用", n_calls_max: "最多调用", rate: "限速", est_minutes: "预估耗时",
+  requires_auth: "需授权", category: "类目", task: "任务", detail: "详情",
+};
+function humanizeDetail(detail) {
+  let s = String(detail ?? "");
+  // 1. Python dict 字符串（单引号）→ 逐键提取
+  const pyDict = /^\s*\{.*\}\s*$/.test(s) && s.includes("'");
+  if (pyDict) {
+    const kvs = [];
+    const re = /'([^']+)'\s*:\s*(\[[^\]]*\]|\{[^}]*\}|'[^']*'|[^,{}]+)/g;
+    let m;
+    while ((m = re.exec(s)) !== null) {
+      let v = m[2].trim().replace(/^'|'$/g, "");
+      if (v.startsWith("[") && v.endsWith("]")) {
+        try { v = JSON.parse(v.replace(/'/g, '"')).join(", "); } catch { /* keep */ }
+      }
+      kvs.push([DICT_KEYS_ZH[m[1]] ?? m[1], v]);
+    }
+    if (kvs.length) {
+      return kvs.map(([k, v]) =>
+        `<div class="kv"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div>`).join("");
+    }
+  }
+  // 2. JSON 字符串 → 键值
+  if (s.startsWith("{") || s.startsWith("[")) {
+    try {
+      const o = JSON.parse(s);
+      const arr = Array.isArray(o) ? o : Object.entries(o);
+      return arr.map(([k, v]) =>
+        `<div class="kv"><span class="k">${esc(DICT_KEYS_ZH[k] ?? k)}</span><span class="v">${esc(typeof v === "object" ? JSON.stringify(v) : String(v))}</span></div>`).join("");
+    } catch { /* fall through */ }
+  }
+  // 3. 修数卡 JSON 示例文本 → 分段美化（①②③ 结构保留）
+  if (s.includes("anchor") && s.includes("mode")) {
+    s = esc(s);
+    s = s.replace(/（注册表推荐[^）]*）/, '<span class="hl">$&</span>');
+    s = s.replace(/\\n/g, "<br>");
+    return s.replace(/(\d\.\s)/g, "<br><b>$1</b>");
+  }
+  // 4. 纯文本（保留换行）
+  return esc(s).replace(/\n/g, "<br>");
 }
 
 async function decide(msgId, choice) {
