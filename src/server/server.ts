@@ -31,6 +31,7 @@ import { loadCategoryPresets, buildRefreshParams } from "./presets.js";
 import { parseDecision } from "./decision-parser.js";
 import { VENV_PY } from "../bridge/agent-step.js";
 import { routeIntent } from "./intent-router.js";
+import { chatLayer } from "./chat-layer.js";
 
 const PORT = Number(process.env.PSA_PORT ?? 8123);
 const DATA_DIR = join(process.cwd(), ".psa");
@@ -205,6 +206,18 @@ app.post("/api/chat-intent", async (req, res) => {
   if (!text) return res.status(400).json({ error: "缺 text" });
   const labels = loadCategoryPresets().map((c) => c.label);
   const r = await routeIntent(String(text), labels);
+  res.json(r);
+});
+
+/** 自然语言对话层（多轮上下文 + 提问/任务分流） */
+app.post("/api/chat", async (req, res) => {
+  const { messages } = req.body ?? {};
+  if (!Array.isArray(messages) || !messages.length) return res.status(400).json({ error: "缺 messages" });
+  const labels = loadCategoryPresets().map((c) => c.label);
+  const r = await chatLayer(
+    messages.map((m) => ({ role: String(m.role ?? "user"), content: String(m.content ?? "") })),
+    labels,
+  );
   res.json(r);
 });
 

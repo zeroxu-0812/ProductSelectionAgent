@@ -142,6 +142,7 @@ const API = "";
 let CATS = [];
 let activeTask = null; // { id, type, msgId, logIds }
 let pollTimer = null;
+const CHAT_HISTORY = []; // 对话历史（多轮上下文）
 
 function esc(s) { return String(s ?? "").replace(/[&<>"]/g,
   c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c])); }
@@ -534,10 +535,30 @@ async function send() {
 
   const t = typing();
   try {
-    // 1. 意图路由
-    const intent = await api("/api/chat-intent", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }),
+    // 1. 自然语言对话层（多轮上下文 + 提问/任务分流）
+    const chat = await api("/api/chat", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: CHAT_HISTORY.slice(-10).concat([{ role: "user", content: text }]) }),
     });
+    if (!chat || chat.error) {
+      t.remove();
+      addMsg("agent", `<div class="ablock">⚠️ 对话层异常: ${esc(chat?.error ?? "无响应")}</div>`);
+      return;
+    }
+    if (chat.kind === "answer") {
+      t.remove();
+      CHAT_HISTORY.push({ role: "user", content: text });
+      CHAT_HISTORY.push({ role: "assistant", content: chat.text ?? "" });
+      addMsg("agent", `<div class="ablock">${esc(chat.text ?? "")}</div>`);
+      return;
+    }
+    // kind=task → 走任务流程（LLM 已提取结构化参数）
+    if (chat.kind !== "task") {
+      t.remove();
+      addMsg("agent", `<div class="ablock">${esc(JSON.stringify(chat))}</div>`);
+      return;
+    }
+    const intent = { ok: true, type: chat.type, params: chat.params ?? {}, reason: "对话层" };
     if (!intent.ok) {
       t.remove();
       addMsg("agent", `<div class="ablock">${esc(intent.reply ?? "没理解")}</div>`);
@@ -547,7 +568,7 @@ async function send() {
     // 2. 组装参数 + 创建任务
     let type = intent.type, params;
     if (type === "refresh" || type === "insight" || type === "tag") {
-      const catText = extractCategory(text);
+      const catText = intent.params?.category || extractCategory(text);
       params = buildCategoryParams(catText || intent.params?.category || "");
       if (!params.category) { t.remove(); addMsg("agent", `<div class="ablock">请告诉我类目名（如「分析 square_nose」）</div>`); return; }
       // 打标文件自动定位（洞察/全流程免人工输入打标路径）
@@ -573,6 +594,11 @@ async function send() {
         source: "sif", keywords: intent.params?.keywords ?? [], live: true, withFunnel: true,
         workDir: "/tmp/psa_chat_mon", threadId: "chat-mon-" + Date.now(),
       };
+      if (!params.keywords.length) {
+        t.remove();
+        addMsg("agent", `<div class="ablock">请告诉我要监控的关键词（如「监控 carbide burr、die grinder bits」）</div>`);
+        return;
+      }
     } else if (type === "collect") {
       const catText = extractCategory(text);
       const taskJson = { mode: "category_monthly", category: catText, months: "last24", min_units: 50 };
@@ -589,6 +615,9 @@ async function send() {
       addMsg("agent", `<div class="ablock">⚠️ ${esc(r.error)}</div>`);
       return;
     }
+    // 记录对话历史（多轮指代）
+    CHAT_HISTORY.push({ role: "user", content: text });
+    CHAT_HISTORY.push({ role: "assistant", content: `已启动${TYPE_NAMES[type] ?? type}任务 ${r.id}` });
     t.remove();
     addMsg("agent", `<div class="ablock" id="meta-${msgId}">
       <div class="atitle">${esc(TYPE_NAMES[type] ?? type)} <span class="badge running">运行中</span></div>
