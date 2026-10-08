@@ -228,7 +228,7 @@ function buildCategoryParams(v) {
 
 /** 从意图文本提取类目名（去掉动作词） */
 function extractCategory(text) {
-  return text.replace(/分析|全流程|跑一下|跑一遍|研究|取数|采集|打标|标注|洞察|报告|奇点|市场洞察|一下|这个|该|类目|的|数据|帮我|请/g, "").trim();
+  return text.replace(/输出|分析|全流程|跑一下|跑一遍|研究|取数|采集|打标|标注|洞察|报告|奇点|市场洞察|一下|这个|该|类目|的|数据|帮我|请/g, "").trim();
 }
 
 /** 新类目冷启动流（927 管道: prepare→套装三闸门→extract→维度确认→行业三闸门→confirm→bridge→全流程） */
@@ -257,6 +257,15 @@ async function coldstartFlow(msgId, params, type) {
     body: JSON.stringify({ action: "prepare", category: cat }),
   });
   if (prep.error) { log("⚠️ " + prep.error); CS = null; return; }
+  if (!prep.n) {
+    // 库里无该类目数据 → 引导取数（不继续提维）
+    document.getElementById("csbadge-" + msgId).className = "badge error";
+    document.getElementById("csbadge-" + msgId).textContent = "需取数";
+    log("⚠️ 数据库无「" + cat + "」类目数据（0 个 ASIN），无法提维打标。");
+    log("请先回复「取数 " + cat + "」（卖家精灵自动反查+月采），取数完成后再跑分析。");
+    CS = null;
+    return;
+  }
   log(`   RDS 头部 ${prep.n} 个 ASIN 就绪`);
 
   // 已注册类目（有 label 但无打标成品）→ 快通道: 沿用权威 label，不重新提维
@@ -279,8 +288,10 @@ async function coldstartFlow(msgId, params, type) {
   ]);
 }
 
-/** 冷启动闸门卡 */
+/** 冷启动闸门卡（弹出时 badge 切「待拍板」） */
 function csCard(msgId, title, detail, buttons) {
+  const badge = document.getElementById("csbadge-" + msgId);
+  if (badge) { badge.className = "badge suspended"; badge.textContent = "待拍板"; }
   const card = document.createElement("div");
   card.className = "cardbox";
   card.id = "cscard-" + msgId;
@@ -307,6 +318,8 @@ function csLog(s) {
 
 async function csNext(next, label) {
   document.getElementById("cscard-" + CS.msgId)?.remove();
+  const badge = document.getElementById("csbadge-" + CS.msgId);
+  if (badge) { badge.className = "badge running"; badge.textContent = "运行中"; }
   if (label && next !== "send") csLog(`  ← ${label}`);
   await csHandle(next, "");
 }
