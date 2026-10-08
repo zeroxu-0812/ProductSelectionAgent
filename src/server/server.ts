@@ -229,10 +229,21 @@ app.post("/api/tasks", async (req, res) => {
     return res.status(400).json({ error: `未知任务类型 ${type}（可选: ${Object.keys(WORKFLOW_INPUTS)}）` });
   }
   // P3 类目任务锁: 同类目有活跃任务 → 拒绝（防 pipeline 目录互踩）
-  const category = (params?.category as string) ?? (params?.taskJson ? "collect-" + type : "");
-  const active = loadTasks().find((x) =>
-    (x.params?.category === category || (category.startsWith("collect-") && x.type === type))
-    && ["starting", "pending", "suspended", "running"].includes(x.status));
+  let category: string = (params?.category as string) ?? "";
+  if (!category && type === "collect" && params?.taskJson) {
+    try { category = String(JSON.parse(params.taskJson as string).category ?? ""); } catch { /* ignore */ }
+  }
+  const lockKey = category || `${type}`;
+  const active = loadTasks().find((x) => {
+    if (!["starting", "pending", "suspended", "running"].includes(x.status)) return false;
+    // 重启后 runRefs 丢失的 suspended 任务无法续拍 → 不算活跃（顺手清理）
+    if (x.status === "suspended" && !runRefs.has(x.id)) return false;
+    const xCat = String(x.params?.category ?? "");
+    const xKey = xCat || (x.type === "collect" ? (() => {
+      try { return String(JSON.parse(String(x.params?.taskJson ?? "{}")).category ?? ""); } catch { return ""; }
+    })() : x.type);
+    return xKey === lockKey || (x.type === type && !xCat && !category);
+  });
   if (active && category) {
     return res.status(409).json({ error: `类目 ${category} 已有活跃任务 ${active.id}（状态 ${active.status}）——请先完成或拍板`, activeTask: active.id });
   }
