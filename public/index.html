@@ -358,7 +358,7 @@ async function csHandle(next, text) {
     }
     return;
   }
-  if (next === "setFinal" || next === "setSkip" || next === "setAll" || next === "setNone") {
+  if (next === "setFinal" || next === "setAll" || next === "setNone") {
     if (next === "setAll" || next === "setNone") {
       const r0 = await api(`/api/tasks`); // 无任务——直接构造 manual：从 uncertain 全判
       csLog(`  （${next === "setAll" ? "全部视为套装" : "全部视为单件"}——简化处理）`);
@@ -369,6 +369,11 @@ async function csHandle(next, text) {
     });
     if (!r.ok) { csLog("⚠️ " + (r.error ?? "套装定稿失败")); }
     else csLog("  套装判断定稿 ✓（label 追加「售卖形式」维）");
+    await csHandle("extract", "");
+    return;
+  }
+  // 无套装（setSkip）→ 不进套装判断，直接提维
+  if (next === "setSkip") {
     await csHandle("extract", "");
     return;
   }
