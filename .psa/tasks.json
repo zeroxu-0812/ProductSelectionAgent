@@ -11,9 +11,12 @@
       "workDir": "/tmp/psa_opt_probe",
       "threadId": "opt-probe-1"
     },
-    "status": "suspended",
+    "status": "success",
     "createdAt": "2026-10-08T10:05:37.605Z",
-    "decisions": [],
+    "decisions": [
+      "mi",
+      "mi"
+    ],
     "runId": "a194bb72-95ef-41bd-9380-3ccedc4b6107",
     "lastStep": "insight"
   },

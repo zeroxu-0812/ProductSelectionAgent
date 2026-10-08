@@ -87,6 +87,13 @@ function pickInput(type: string, params: Record<string, unknown>): Record<string
   return out;
 }
 
+/** 解析任务真实状态: workflow 输出优先（interrupted_cancelled 不得伪装 success） */
+function resolveTaskStatus(r: Record<string, unknown>): string {
+  const res = (r.result ?? {}) as Record<string, unknown>;
+  if (res && typeof res === "object" && typeof res.status === "string") return res.status as string;
+  return (r.status as string) ?? "unknown";
+}
+
 /** 异步执行任务（后台跑，卡点挂起等待拍板） */
 const runRefs = new Map<string, { run: unknown; last: Record<string, unknown> }>();
 async function runTask(t: TaskRec) {
@@ -95,7 +102,7 @@ async function runTask(t: TaskRec) {
   const r0 = (await run.start({ inputData: pickInput(t.type, t.params) })) as Record<string, unknown>;
   runRefs.set(t.id, { run, last: r0 });
   t.runId = run.runId;
-  t.status = (r0.status as string) ?? "unknown";
+  t.status = resolveTaskStatus(r0);
   // P3 重启恢复: 挂起步骤名持久化（重启后 resume 用）
   if (t.status === "suspended") {
     const steps = (r0.steps ?? {}) as Record<string, unknown>;
@@ -292,7 +299,7 @@ app.post("/api/tasks/:id/resume", async (req, res) => {
   const r = await run.resume({ step, resumeData: { decision } });
   ref.last = r;
   const tasks = loadTasks().map((x) =>
-    x.id === t.id ? { ...x, status: (r.status as string) ?? "unknown", decisions: [...x.decisions, decision] } : x);
+    x.id === t.id ? { ...x, status: resolveTaskStatus(r), decisions: [...x.decisions, decision] } : x);
   saveTasks(tasks);
   res.json({ id: t.id, ...readRunState(t) });
 });
