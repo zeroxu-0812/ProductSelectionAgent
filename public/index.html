@@ -881,6 +881,22 @@ async function health() {
     const p = await api("/api/presets");
     CATS = p.categories ?? [];
   } catch {}
+  // 页面加载恢复挂起任务（刷新后拍板卡和方案按钮不丢）
+  try {
+    const tasks = await api("/api/tasks");
+    const suspended = (tasks ?? []).find((x) => x.status === "suspended");
+    if (suspended) {
+      activeTask = { id: suspended.id, type: suspended.type, msgId: "t" + Date.now() };
+      addMsg("agent", `<div class="ablock" id="meta-${activeTask.msgId}">
+        <div class="atitle">${esc(TYPE_NAMES[suspended.type] ?? suspended.type)}
+        <span class="badge suspended">待拍板</span></div>
+        <div class="logbox" id="log-${activeTask.msgId}"></div></div>`, `任务 ${suspended.id}（恢复自上次会话）`);
+      appendLog(activeTask.msgId, `任务 ${suspended.id} 挂起中——拍板卡已恢复`);
+      const d = await api(`/api/tasks/${suspended.id}`);
+      if (d.status === "suspended" && d.suspendPayload) renderCard(activeTask.msgId, d);
+      poll();
+    }
+  } catch {}
 }
 
 health();
