@@ -94,6 +94,24 @@ body { background: var(--bg); color: var(--txt); font-family: -apple-system, "Pi
 .chip { font-size: 11.5px; padding: 5px 12px; border-radius: 16px; border: 1px solid var(--border);
   background: transparent; color: var(--sub); cursor: pointer; transition: all .15s; }
 .chip:hover { color: var(--accent); border-color: var(--accent); }
+/* agent 按钮 tooltip（悬停浮现使用样例） */
+.agent-btn { position: relative; }
+.agent-btn::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 8px); left: 50%;
+  transform: translateX(-50%) scale(.95);
+  background: #1a2233; color: #cfe0ff; font-size: 11px;
+  padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border);
+  white-space: nowrap; opacity: 0; pointer-events: none;
+  transition: opacity .15s, transform .15s; z-index: 30;
+}
+.agent-btn::before {
+  content: ""; position: absolute; bottom: calc(100% + 3px); left: 50%;
+  transform: translateX(-50%); border: 5px solid transparent; border-top-color: #1a2233;
+  opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 30;
+}
+.agent-btn:hover::after, .agent-btn:hover::before { opacity: 1; transform: translateX(-50%) scale(1); }
+.agent-btn:hover::before { transform: translateX(-50%); }
 .inputrow { display: flex; gap: 10px; align-items: flex-end; }
 .inputrow textarea { flex: 1; resize: none; background: rgba(6,9,14,.7); border: 1px solid var(--border);
   color: var(--txt); border-radius: 14px; padding: 12px 15px; font-size: 13.5px; line-height: 1.5;
@@ -133,9 +151,11 @@ body { background: var(--bg); color: var(--txt); font-family: -apple-system, "Pi
 
 <div class="inputwrap"><div class="inputinner">
   <div class="chips">
-    <button class="chip" onclick="setInput('分析 square_nose 类目')">🔍 分析 SN 类目</button>
-    <button class="chip" onclick="setInput('监控 carbide burr')">📡 监控关键词</button>
-    <button class="chip" onclick="setInput('取数 Hole Saws')">📥 取数</button>
+    <button class="chip agent-btn" data-tip="分析一下 Cutting Burrs" onclick="setInput('分析一下 ')">🔄 全流程分析</button>
+    <button class="chip agent-btn" data-tip="给 Paint Scrapers 出个洞察报告" onclick="setInput('给  出个洞察报告')">📊 洞察报告</button>
+    <button class="chip agent-btn" data-tip="监控关键词 carbide burr、die grinder bits" onclick="setInput('监控关键词 ')">📡 监控巡检</button>
+    <button class="chip agent-btn" data-tip="取数 Creatine（卖家精灵自动反查类目+月采）" onclick="setInput('取数 ')">📥 取数</button>
+    <button class="chip agent-btn" data-tip="打标 cutting_burrs（增量打标）" onclick="setInput('打标 ')">🏷️ 打标</button>
   </div>
   <div class="inputrow">
     <textarea id="input" rows="1" placeholder=""></textarea>
