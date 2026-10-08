@@ -41,6 +41,7 @@ export async function runAgentStep(
       title: outcome.card.title,
       detail: outcome.card.detail ?? "",
       return_to: outcome.card.return_to ?? "",
+      options: outcome.card.options ?? [],
       agent,
     });
   } else if (outcome.kind === "error" && debug) {

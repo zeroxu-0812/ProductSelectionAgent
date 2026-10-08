@@ -1,5 +1,39 @@
 [
   {
+    "id": "t-ccc5433f12",
+    "type": "insight",
+    "params": {
+      "category": "square_nose",
+      "categoryLabel": "Square Nose End Mills",
+      "labelXlsx": "/Users/haiyi/Desktop/Square Nose End Mills/sn_label.xlsx",
+      "tagJson": "/Users/haiyi/Desktop/Square Nose End Mills/sn_tag_full_20260911.json",
+      "pipelineOut": "/tmp/psa_opt_probe",
+      "workDir": "/tmp/psa_opt_probe",
+      "threadId": "opt-probe-1"
+    },
+    "status": "suspended",
+    "createdAt": "2026-10-08T10:05:37.605Z",
+    "decisions": [],
+    "runId": "a194bb72-95ef-41bd-9380-3ccedc4b6107",
+    "lastStep": "insight"
+  },
+  {
+    "id": "t-bf1afeecfd",
+    "type": "collect",
+    "params": {
+      "source": "sellersprite",
+      "taskJson": "{\"mode\":\"category_monthly\",\"category\":\"Creatine\",\"months\":\"last24\",\"min_units\":50}",
+      "live": false,
+      "workDir": "/tmp/psa_chat_col_creatine",
+      "threadId": "chat-col-1791453840658"
+    },
+    "status": "suspended",
+    "createdAt": "2026-10-08T10:04:00.663Z",
+    "decisions": [],
+    "runId": "eea87fdf-3142-466a-bcaa-e0732f72d96f",
+    "lastStep": "collect"
+  },
+  {
     "id": "t-b65e646c78",
     "type": "collect",
     "params": {
