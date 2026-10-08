@@ -36,7 +36,8 @@ const collectStep = createStep({
         source: inputData.source,
         task,
         live: inputData.live,
-        budget_calls: 5,
+        budget_calls: 500,   // 预算阈值 500 次调用（方案 A: 正常取数不弹卡，异常大单才弹）
+        authorized: true,    // 对话指令「取数 xx」即授权（2026-10-08 用户拍板）
         run_dir: `${inputData.workDir}/collect`,
       },
       resumeData,

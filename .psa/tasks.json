@@ -1,5 +1,21 @@
 [
   {
+    "id": "t-b65e646c78",
+    "type": "collect",
+    "params": {
+      "source": "sellersprite",
+      "taskJson": "{\"mode\":\"category_monthly\",\"category\":\"Creatine Nutritional Supplements\",\"months\":\"last1\",\"min_units\":50}",
+      "live": false,
+      "workDir": "/tmp/psa_direct_col",
+      "threadId": "direct-col-1"
+    },
+    "status": "suspended",
+    "createdAt": "2026-10-08T07:53:12.132Z",
+    "decisions": [],
+    "runId": "97bb2544-cd74-4136-bb31-825017c48a0f",
+    "lastStep": "collect"
+  },
+  {
     "id": "t-cdedbd5462",
     "type": "collect",
     "params": {
