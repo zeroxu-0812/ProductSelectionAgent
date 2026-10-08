@@ -716,10 +716,18 @@ function renderCard(msgId, d) {
     .replace(/^continue（/, "继续（")
     .replace(/^cancel（/, "取消（")
     .replace(/^skip（/, "跳过（");
+  const optValue = (o) => String(o).split("（")[0].split("(")[0].trim();
+  const optClick = (o) => {
+    const v = optValue(o);
+    // 裸词决策（continue/cancel/skip/singularity/mi/both）→ 直接拍板
+    if (["continue", "cancel", "skip", "singularity", "mi", "both"].includes(v)) return `decide('${msgId}','${v}')`;
+    // 其他（如修数卡的「拍板 JSON」）→ 引导在输入框对话拍板（示例提示）
+    return `document.getElementById('input').focus();document.getElementById('input').placeholder='如：锚点 LU&MN 营收 144883.52 / 不修数 / 系数 0.9';`;
+  };
   card.innerHTML = `
     <div class="ctitle"><span class="cpulse"></span>需要你拍板 · ${esc(sp.title ?? "")}</div>
     <div class="cdetail">${humanizeDetail(sp.detail ?? "")}</div>
-    <div class="opts">${opts.map(o => `<button class="optbtn" onclick="decide('${msgId}','${esc(o.split("（")[0].trim())}')">${esc(optLabel(o))}</button>`).join("")}</div>
+    <div class="opts">${opts.map(o => `<button class="optbtn" onclick="${optClick(o)}">${esc(optLabel(o))}</button>`).join("")}</div>
     <div class="chathint">💬 或直接在输入框回复（如「两个都要」「不修数」）</div>`;
   box.parentElement.after(card);
   card.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -790,8 +798,29 @@ async function resumeWith(decision, msgId) {
   if (card) card.remove();
 }
 
-// 输入框：对话式拍板优先（若活跃任务有挂起卡，用户输入走拍板解析）
+// 输入框：对话式拍板优先（若活跃任务有挂起卡，用户输入走拍板解析 + 白名单校验）
 const inputEl = document.getElementById("input");
+/** 拍板决策白名单校验: 非标准答案拒绝提交（限制自由输入影响准确率） */
+function validateDecision(title, decision, options) {
+  if (decision == null) return false;
+  if (typeof decision === "string") {
+    const legal = (options ?? []).map(o => String(o).split("（")[0].split("(")[0].trim());
+    return legal.includes(decision);
+  }
+  if (typeof decision === "object") {
+    // 修数卡 JSON: mode ∈ anchor/coef/none 且字段严格合法
+    if (!["anchor", "coef", "none"].includes(decision.mode)) return false;
+    if (decision.mode === "anchor") {
+      return typeof decision.anchor_brand === "string" && decision.anchor_brand.trim()
+        && typeof decision.anchor_revenue === "number" && decision.anchor_revenue > 0;
+    }
+    if (decision.mode === "coef") {
+      return typeof decision.coef === "number" && decision.coef > 0 && decision.coef < 100;
+    }
+    return true;
+  }
+  return false;
+}
 inputEl.addEventListener("keydown", async (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
@@ -811,12 +840,18 @@ inputEl.addEventListener("keydown", async (e) => {
         addUserMsg(text);
         inputEl.value = "";
         const title = d.suspendPayload.title ?? "";
+        const opts = d.suspendPayload.options ?? [];
         const parsed = await api("/api/parse-decision", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ cardTitle: title, text }),
         });
         if (!parsed.ok) {
-          addMsg("agent", `<div class="ablock">⚠️ 没听懂: ${esc(parsed.reason)}<br>试试「不修数」/「两个都要」/「锚点 LU&MN 营收 144883.52」</div>`);
+          addMsg("agent", `<div class="ablock">⚠️ 没听懂: ${esc(parsed.reason)}<br>请点击上方方案选项按钮，或输入标准选项词（如「不修数」「两个都要」）</div>`);
+          return;
+        }
+        // 白名单校验: 非标准答案拒绝提交（保证准确率）
+        if (!validateDecision(title, parsed.decision, opts)) {
+          addMsg("agent", `<div class="ablock">⛔ 你的输入解析为 <code>${esc(JSON.stringify(parsed.decision))}</code>，不在本卡标准选项内——已拒绝提交。<br>请点击上方方案选项按钮，或输入标准选项词</div>`);
           return;
         }
         addMsg("agent", `<div class="ablock">✅ 已理解 → <code style="font-size:11.5px;color:var(--ok)">${esc(JSON.stringify(parsed.decision))}</code>（${esc(parsed.reason)}），提交中…</div>`);

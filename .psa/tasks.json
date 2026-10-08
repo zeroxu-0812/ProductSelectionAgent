@@ -1,5 +1,63 @@
 [
   {
+    "id": "t-cdedbd5462",
+    "type": "collect",
+    "params": {
+      "source": "sellersprite",
+      "taskJson": "{\"mode\":\"category_monthly\",\"category\":\"Creatine\",\"months\":\"last24\",\"min_units\":50}",
+      "live": false,
+      "workDir": "/tmp/psa_chat_col_creatine",
+      "threadId": "chat-col-1791433045606"
+    },
+    "status": "success",
+    "createdAt": "2026-10-08T04:17:25.610Z",
+    "decisions": [
+      {
+        "mode": "none"
+      }
+    ],
+    "runId": "5474c6fe-3b8d-4fc3-b0de-0f1b99890ec8",
+    "lastStep": "collect"
+  },
+  {
+    "id": "t-b2dbd6841f",
+    "type": "collect",
+    "params": {
+      "source": "sellersprite",
+      "taskJson": "{\"mode\": \"category_monthly\", \"category\": \"Creatine Nutritional Supplements\", \"months\": \"last1\", \"min_units\": 50}",
+      "live": false,
+      "workDir": "/tmp/psa_resume_fix",
+      "threadId": "resume-fix-1"
+    },
+    "status": "success",
+    "createdAt": "2026-10-08T02:50:50.495Z",
+    "decisions": [
+      "continue"
+    ],
+    "runId": "1dd3dc65-7706-476f-b34f-2a0787d56895",
+    "lastStep": "collect"
+  },
+  {
+    "id": "t-04fd595b05",
+    "type": "collect",
+    "params": {
+      "source": "sellersprite",
+      "taskJson": "{\"mode\":\"category_monthly\",\"category\":\"Jobber Drill Bits\",\"months\":\"last24\",\"min_units\":50}",
+      "live": false,
+      "workDir": "/tmp/psa_chat_col_jobberdrillb",
+      "threadId": "chat-col-1791427566925"
+    },
+    "status": "success",
+    "createdAt": "2026-10-08T02:46:06.928Z",
+    "decisions": [
+      {
+        "mode": "continue"
+      }
+    ],
+    "runId": "d2fcd282-050f-47f2-90c1-4fd92a7ad9c3",
+    "lastStep": "collect"
+  },
+  {
     "id": "t-d7810028f6",
     "type": "collect",
     "params": {
@@ -9,9 +67,11 @@
       "workDir": "/tmp/psa_chat_col_magnesium2",
       "threadId": "chat-col-mg-2"
     },
-    "status": "suspended",
+    "status": "success",
     "createdAt": "2026-10-08T02:39:37.967Z",
-    "decisions": [],
+    "decisions": [
+      "continue"
+    ],
     "runId": "3832426d-b906-49a6-9a9e-2867b701b384",
     "lastStep": "collect"
   },
